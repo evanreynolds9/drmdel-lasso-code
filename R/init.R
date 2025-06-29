@@ -113,6 +113,139 @@ runSimulation = function(distribution, n, d, model, lambdaVals, adaptive = FALSE
   return(simulationResults)
 }
 
+# Define wrapper to return a sub-function of basis function 12 based on integer input
+subBasisFunc = function(id) {
+  result = switch(as.character(id),
+   `1`  = 2, # code for log(x)
+   `2`  = function(x) log(abs(x))^2,
+   `3`  = function(x) c(log(abs(x)), log(abs(x))^2),
+   `4`  = 3, # code for sqrt(x)
+   `5`  = function(x) c(log(abs(x)), sqrt(abs(x))),
+   `6`  = function(x) c(log(abs(x))^2, sqrt(abs(x))),
+   `7`  = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x))),
+   `8`  = 1, # code for x
+   `9`  = 6, # code for log(x), x - true basis function for gamma
+   `10` = function(x) c(log(abs(x))^2, x),
+   `11` = function(x) c(log(abs(x)), log(abs(x))^2, x),
+   `12` = function(x) c(sqrt(abs(x)), x),
+   `13` = 7, # code for log(x), sqrt(x), x
+   `14` = function(x) c(log(abs(x))^2, sqrt(abs(x)), x),
+   `15` = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x)), x),
+   `16` = 4, # code for x^2
+   `17` = function(x) c(log(abs(x)), x^2),
+   `18` = function(x) c(log(abs(x))^2, x^2),
+   `19` = function(x) c(log(abs(x)), log(abs(x))^2, x^2),
+   `20` = function(x) c(sqrt(abs(x)), x^2),
+   `21` = 8, # code for log(x), sqrt(x), x^2
+   `22` = function(x) c(log(abs(x))^2, sqrt(abs(x)), x^2),
+   `23` = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x)), x^2),
+   `24` = 5, # code for x, x^2 - true basis function for normal
+   `25` = 9, # code for log(x), x, x^2
+   `26` = function(x) c(log(abs(x))^2, x, x^2),
+   `27` = function(x) c(log(abs(x)), log(abs(x))^2, x, x^2),
+   `28` = 10, # code for srqt(x), x, x^2 
+   `29` = 11, # code for log(x), sqrt(x), x, x^2
+   `30` = function(x) c(log(abs(x))^2, sqrt(abs(x)), x, x^2),
+   `31` = 12  # code for log(x), log(x)^2, sqrt(x), x, x^2
+  )
+  
+  if (is.null(result)) stop("Invalid ID: must be 1 through 31")
+  return(result)
+}
+
+# Define a wrapper to run simulations but based purely on the AIC/BIC of the MELEs of the sub-functions,
+# as defined by Fokianos (2007)
+simAICBIC = function(distribution, n, runs = 1000){
+  # Ensure distribution is normal or gamma
+  if(!(distribution %in% c("normal", "gamma"))){
+    stop('Invalid distribution string passed. Currently only "normal" and "gamma" are supported.')
+  }
+  
+  # Define parameters for the distributions
+  if(distribution == "normal"){
+    mu_0 = 2
+    mu_1 = 1.8
+    mu_2 = 1.9
+    sigma_0 = 2
+    sigma_1 = 0.89
+    sigma_2 = 0.875
+  } else if (distribution == "gamma"){
+    rate_0 = 2
+    rate_1 = 1.4
+    rate_2 = 1.2
+    shape_0 = 1.8
+    shape_1 = 1.2
+    shape_2 = 1
+  }
+  
+  # Set the seed based on the sample size
+  if(n == 250){
+    set.seed(20)
+  } else if (n == 500){
+    set.seed(21)
+  } else if (n == 1000){
+    set.seed(22)
+  } else if (n == 2500){
+    set.seed(23)
+  } else if (n == 5000){
+    set.seed(24)
+  } else {
+    stop("An invalid sample size (individual) was provided. Currently only 250, 500, 1000, 2500 and 5000 are supported.")
+  }
+  
+  # Set m - always setting to two for these simulation
+  m = 2
+  
+  # Set n_total and n_samples
+  n_samples = rep(n, m+1)
+  n_total = sum(n_samples)
+  
+  
+  
+  # Setup matrix to store results
+  # Only setup for basis function 12 right now - loop over all 31 options - so 31 rows per run
+  # We will also only store columns with the AIC/BIC values since we are not currently interested in inference
+  subFuncs = 31
+  simulationResults = matrix(0, nrow = runs*31, ncol = 4)
+  # Column 1: Run
+  # Column 2: basisFuncID
+  # Column 3: AIC
+  # Column 4: BIC
+  
+  # Start runs
+  for(i in 1:runs){
+    # Generate random data
+    # Simulate data
+    if(distribution == "normal"){
+      x0_test = rnorm(n,mu_0,sigma_0)
+      x1_test = rnorm(n,mu_1,sigma_1)
+      x2_test = rnorm(n,mu_2,sigma_2)
+    } else{ # The distribution is gamma
+      x0_test = rgamma(n,shape=shape_0,rate=rate_0)
+      x1_test = rgamma(n,shape=shape_1,rate=rate_1)
+      x2_test = rgamma(n,shape=shape_2,rate=rate_2)
+    }
+    x_test = c(x0_test,x1_test,x2_test)
+    
+    # Iterate over each basis function
+    for(j in 1:subRuns){
+      # Get sub function
+      model = subBasisFunc(j)
+      
+      # Compute mele
+      mele = drmdel(x=x_test, n_samples=n_samples, basis_func=model)$mele
+      
+      # Get d from mele
+      d = (length(mele)-m)/m
+      
+      # Compute BIC and AIC
+      AICBIC = aic_bic_drm(theta = mele, x = x_test, n_total = n_total, 
+                           n_samples = n_samples, m = m, basis_func = model, d = d)
+    }
+  }
+  
+}
+
 # Define a simple wrapper function that, for data from a simulation, computes:
 #   1. The proportion of runs in the simulation that yielded at least one selection consistent solution
 #   2. The proportion of runs in the simulation where AIC yielded a selection consistent solution
@@ -249,6 +382,5 @@ summariseSim = function(distribution, file_name, basis_func, tol){
            BIC = consistMinBIC,
            BIC_sub = subMinBIC))
 }
-
 
 

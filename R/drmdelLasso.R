@@ -39,7 +39,7 @@ bcgd = function(theta_0, x ,n_total, n_samples, m, d, model, lambda, pen_g = rep
 }
 
 # Create aic/bic function
-aic_bic_drm = function(theta, x, n_total ,n_samples, m, basis_func, d){
+aic_bic_drm = function(theta, x, n_total, n_samples, m, basis_func, d){
   
   # Compute the AIC and BIC of a given DRM parameter estimate
   negLDLVal = negLDL(theta, x, n_total, n_samples, m, basis_func, d)

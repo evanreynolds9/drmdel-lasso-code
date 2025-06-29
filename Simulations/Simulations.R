@@ -6,11 +6,11 @@ source("R\\init.R")
 
 # Set parameter values
 distribution = "normal"
-n = 250
+n = 1000
 model = 12
 lambdaVals = c(0, ((n*3)^(1/3))*c(0.1,0.25,0.5,1,2,5,10,25,50))
 adaptive = TRUE
-runs = 10
+runs = 50
 
 # Compute d based on model
 if(model %in% 1:4){
@@ -21,7 +21,7 @@ if(model %in% 1:4){
   d = 3
 }else if(model == 11){
   d = 4
-}else if(model ==12){
+}else if(model == 12){
   d = 5
 }else{
   stop("Invalid model provided - adjust the program header.")
@@ -47,3 +47,6 @@ write.csv(simDataDf, fileName, row.names = FALSE)
 # Get proportions from simulations
 simSum = summariseSim(distribution, fileName, basis_func = model, tol = 1e-12)
 print(simSum)
+
+# Finally reset wd
+setwd("..")
