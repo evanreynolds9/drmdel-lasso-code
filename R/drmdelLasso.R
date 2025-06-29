@@ -42,9 +42,18 @@ bcgd = function(theta_0, x ,n_total, n_samples, m, d, model, lambda, pen_g = rep
 aic_bic_drm = function(theta, x, n_total, n_samples, m, basis_func, d){
   
   # Compute the AIC and BIC of a given DRM parameter estimate
-  negLDLVal = negLDL(theta, x, n_total, n_samples, m, basis_func, d)
+  # Compute the value conditionally depending on if basis_func is numeric
+  if(is.numeric(basis_func)){
+    negLDLVal = negLDL(theta, x, n_total, n_samples, m, basis_func, d)
+  } else { # use the user-defined function version
+    negLDLVal = negLDLUf(theta, x, n_total, n_samples, m, basis_func, d)
+  }
   theta_mat = matrix(theta, nrow = m, ncol = d+1, byrow = TRUE)[,-1] # Remove first column for constants
-  group_sums = colSums(theta_mat^2)
+  if(is.null(ncol(theta_mat))){ # Basis function has only one term
+    group_sums = sum(theta_mat^2)
+  } else {
+    group_sums = colSums(theta_mat^2)
+  }
   
   # Count the number of non-zero groups for the penalty
   pen = sum(group_sums>1e-12)*m # Set tolerance in case values are extremely close to 0

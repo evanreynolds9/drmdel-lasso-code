@@ -126,11 +126,11 @@ subBasisFunc = function(id) {
    `8`  = 1, # code for x
    `9`  = 6, # code for log(x), x - true basis function for gamma
    `10` = function(x) c(log(abs(x))^2, x),
-   `11` = function(x) c(log(abs(x)), log(abs(x))^2, x),
+   `11` = function(x) c(log(abs(x)), log(abs(x))^2, x), # sub for gamma
    `12` = function(x) c(sqrt(abs(x)), x),
-   `13` = 7, # code for log(x), sqrt(x), x
+   `13` = 7, # code for log(x), sqrt(x), x, sub for gamma
    `14` = function(x) c(log(abs(x))^2, sqrt(abs(x)), x),
-   `15` = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x)), x),
+   `15` = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x)), x), # sub for gamma
    `16` = 4, # code for x^2
    `17` = function(x) c(log(abs(x)), x^2),
    `18` = function(x) c(log(abs(x))^2, x^2),
@@ -140,13 +140,16 @@ subBasisFunc = function(id) {
    `22` = function(x) c(log(abs(x))^2, sqrt(abs(x)), x^2),
    `23` = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x)), x^2),
    `24` = 5, # code for x, x^2 - true basis function for normal
-   `25` = 9, # code for log(x), x, x^2
+   `25` = 9, # code for log(x), x, x^2, sub for gamma
    `26` = function(x) c(log(abs(x))^2, x, x^2),
-   `27` = function(x) c(log(abs(x)), log(abs(x))^2, x, x^2),
+   `27` = function(x) c(log(abs(x)), log(abs(x))^2, x, x^2),  # sub for gamma
    `28` = 10, # code for srqt(x), x, x^2 
-   `29` = 11, # code for log(x), sqrt(x), x, x^2
+   `29` = 11, # code for log(x), sqrt(x), x, x^2, sub for gamma
    `30` = function(x) c(log(abs(x))^2, sqrt(abs(x)), x, x^2),
-   `31` = 12  # code for log(x), log(x)^2, sqrt(x), x, x^2
+   `31` = 12  # code for log(x), log(x)^2, sqrt(x), x, x^2, sub for gamma
+   # To compute sub-basis proportion:
+   # IDs 24-31 contain the normal basis function
+   # IDs 9, 11, 13, 15, 25, 27, 29, 31 contain the gamma basis function
   )
   
   if (is.null(result)) stop("Invalid ID: must be 1 through 31")
@@ -200,17 +203,18 @@ simAICBIC = function(distribution, n, runs = 1000){
   n_samples = rep(n, m+1)
   n_total = sum(n_samples)
   
-  
-  
   # Setup matrix to store results
   # Only setup for basis function 12 right now - loop over all 31 options - so 31 rows per run
   # We will also only store columns with the AIC/BIC values since we are not currently interested in inference
   subFuncs = 31
-  simulationResults = matrix(0, nrow = runs*31, ncol = 4)
-  # Column 1: Run
-  # Column 2: basisFuncID
-  # Column 3: AIC
-  # Column 4: BIC
+  simulationResults = matrix(0, nrow = runs*subFuncs, ncol = 4)
+    # Column 1: Run
+    # Column 2: basisFuncID
+    # Column 3: AIC
+    # Column 4: BIC
+  
+  # Set columns names of the results
+  colnames(simulationResults) = c("Run", "subFuncID", "AIC", "BIC")
   
   # Start runs
   for(i in 1:runs){
@@ -228,7 +232,7 @@ simAICBIC = function(distribution, n, runs = 1000){
     x_test = c(x0_test,x1_test,x2_test)
     
     # Iterate over each basis function
-    for(j in 1:subRuns){
+    for(j in 1:subFuncs){
       # Get sub function
       model = subBasisFunc(j)
       
@@ -241,9 +245,19 @@ simAICBIC = function(distribution, n, runs = 1000){
       # Compute BIC and AIC
       AICBIC = aic_bic_drm(theta = mele, x = x_test, n_total = n_total, 
                            n_samples = n_samples, m = m, basis_func = model, d = d)
+      
+      # Set Values in matrix
+      rowIdx = (i-1)*subFuncs + j
+      
+      simulationResults[rowIdx,1] = i
+      simulationResults[rowIdx,2] = j
+      simulationResults[rowIdx,3:4] = AICBIC
+      
     }
   }
   
+  # Return results
+  return(simulationResults)
 }
 
 # Define a simple wrapper function that, for data from a simulation, computes:
@@ -378,6 +392,93 @@ summariseSim = function(distribution, file_name, basis_func, tol){
   # return vector showing proportions
   return(c(runs = consistSolsProp, 
            AIC = consistMinAIC,
+           AIC_sub = subMinAIC,
+           BIC = consistMinBIC,
+           BIC_sub = subMinBIC))
+}
+
+# Define a simple wrapper function that, for data from an AICBIC simulation, computes:
+#   1. The proportion of runs in the simulation where AIC yielded a selection consistent solution
+#   2. The proportion of runs in the simulation where AIC yielded a solution that contains a selection consistent solution
+#   3. The proportion of runs in the simulation where BIC yielded a selection consistent solution
+#   4. The proportion of runs in the simulation where BIC yielded a solution that contains a selection consistent solution
+#   NOTE: This function currently assumes you are passing a simulation that considered all sub-basis functions of model 12
+summariseAICBICSim = function(distribution, file_name){
+  # distribution: (str) string specifying the distribution, must be "normal" or "gamma"
+  # file_name: (str) the name of the file where the data is stored
+  
+  # Check this is being run in the data folder
+  if(sub("^.*/", "", getwd()) != "Data"){
+    print("sumariseSim must be run from the Data folder!")
+    return(-1)
+  }
+  
+  # Ensure distribution string is valid
+  if(!(distribution %in% c("normal", "gamma"))){
+    print('Invalid distribution string passed. Currently only "normal" and "gamma" are supported.')
+    return(-1)
+  }
+  
+  # Import data, throwing an error if import fails
+  simData = try(read.csv(file_name, header = TRUE), silent = TRUE)
+  if(inherits(simData, "try-error")){
+    print("File not found. Double check the specified file name.")
+    return(-1)
+  }
+  
+  # Conditionally assign IDs for consistent solutions based on distribution
+  # This may need to be changed conditionally if other distributions or other basis functions are used
+  if(distribution == "gamma"){
+    consistID = 9
+    consistSubIDs = c(9, 11, 13, 15, 25, 27, 29, 31)
+  } else{ # distribution is normal
+    consistID = 24
+    consistSubIDs = 24:31
+  }
+  
+  # Get the number of runs
+  numRuns = max(simData$Run)
+  
+  # Compute proportions for AIC
+  # Get rows where AIC is the minimum
+  minAIC = simData %>%
+    group_by(Run) %>%
+    slice(which.min(AIC)) %>%
+    ungroup()
+  
+  # Number of consistent solutions
+  minAICConsistRows = minAIC %>%
+    filter(subFuncID == !!consistID)
+  
+  consistMinAIC = nrow(minAICConsistRows)/numRuns
+  
+  # Number of sub-consistent solutions
+  minAICSubRows = minAIC %>%
+    filter(subFuncID %in% !!consistSubIDs)
+  
+  subMinAIC = nrow(minAICSubRows)/numRuns
+  
+  # Compute proportions for BIC
+  # Get rows where BIC is the minimum
+  minBIC = simData %>%
+    group_by(Run) %>%
+    slice(which.min(BIC)) %>%
+    ungroup()
+  
+  # Number of consistent solutions
+  minBICConsistRows = minBIC %>%
+    filter(subFuncID == !!consistID)
+  
+  consistMinBIC = nrow(minBICConsistRows)/numRuns
+  
+  # Number of sub-consistent solutions
+  minBICSubRows = minBIC %>%
+    filter(subFuncID %in% !!consistSubIDs)
+  
+  subMinBIC = nrow(minBICSubRows)/numRuns
+  
+  # Return vector showing proportions
+  return(c(AIC = consistMinAIC,
            AIC_sub = subMinAIC,
            BIC = consistMinBIC,
            BIC_sub = subMinBIC))
