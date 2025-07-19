@@ -23,33 +23,73 @@ source("..\\R\\drmdelLasso.R")
 
 # Define a wrapper function to run simulations for the default distributions and parameter values
 # These are gamma and normal distributions
-runSimulation = function(distribution, n, d, model, lambdaVals, adaptive = FALSE, runs = 1000){
+runSimulation = function(distribution, paramSetup, n, d, model, lambdaVals, adaptive = FALSE, runs = 1000){
   # x ,n_total, n_samples, m, d, model, lambda_vals, adaptive = FALSE
   
   # Ensure distribution is normal or gamma
-  if(!(distribution %in% c("normal", "gamma"))){
-    stop('Invalid distribution string passed. Currently only "normal" and "gamma" are supported.')
+  if(!(distribution %in% c("normal", "gamma", "lognormal"))){
+    stop('Invalid distribution string passed. Currently only "normal", "lognormal" and "gamma" are supported.')
   }
   
   # Define parameters for the distributions
-  if(distribution == "normal"){
-    mu_0 = 2
-    mu_1 = 1.8
-    mu_2 = 1.9
-    sigma_0 = 2
-    sigma_1 = 0.89
-    sigma_2 = 0.875
-  } else if (distribution == "gamma"){
-    rate_0 = 2
-    rate_1 = 1.4
-    rate_2 = 1.2
-    shape_0 = 1.8
-    shape_1 = 1.2
-    shape_2 = 1
+  if(distribution == "normal" || distribution == "lognormal"){
+    if (paramSetup == 1){
+      mu_0 = 2
+      mu_1 = 1.8
+      mu_2 = 1.9
+      sigma_0 = 2
+      sigma_1 = 0.89
+      sigma_2 = 0.875
+    } else if (paramSetup == 2){
+      mu_0 = 5
+      mu_1 = 4.5
+      mu_2 = 5.5
+      sigma_0 = 1.5
+      sigma_1 = 1.25
+      sigma_2 = 1
+    } else if (paramSetup == 3){
+      mu_0 = 18
+      mu_1 = 17
+      mu_2 = 19
+      sigma_0 = 6
+      sigma_1 = 6.5
+      sigma_2 = 7
+    } else {
+      stop("An invalid code was passed to paramSetup. Currently only 1, 2, and 3 are supported.")
+    }
+  } else if(distribution == "gamma") { 
+    if (paramSetup == 1){
+      rate_0 = 2
+      rate_1 = 1.4
+      rate_2 = 1.2
+      shape_0 = 1.8
+      shape_1 = 1.2
+      shape_2 = 1
+    } else if (paramSetup == 2){
+      rate_0 = 1
+      rate_1 = 1.25
+      rate_2 = 1.5
+      shape_0 = 4
+      shape_1 = 3
+      shape_2 = 2
+    } else if (paramSetup == 3){
+      rate_0 = 1
+      rate_1 = 0.9
+      rate_2 = 0.8
+      shape_0 = 6
+      shape_1 = 7
+      shape_2 = 8
+    } else {
+      stop("An invalid code was passed to paramSetup. Currently only 1, 2, and 3 are supported.")
+    }
   }
   
   # Set the seed based on the sample size
-  if(n == 250){
+  if(n == 50){
+    set.seed(18)
+  } else if (n == 100){
+    set.seed(19)
+  } else if(n == 250){
     set.seed(20)
   } else if (n == 500){
     set.seed(21)
@@ -89,10 +129,14 @@ runSimulation = function(distribution, n, d, model, lambdaVals, adaptive = FALSE
       x0_test = rnorm(n,mu_0,sigma_0)
       x1_test = rnorm(n,mu_1,sigma_1)
       x2_test = rnorm(n,mu_2,sigma_2)
-    } else{ # The distribution is gamma
+    } else if(distribution == "gamma") { 
       x0_test = rgamma(n,shape=shape_0,rate=rate_0)
       x1_test = rgamma(n,shape=shape_1,rate=rate_1)
       x2_test = rgamma(n,shape=shape_2,rate=rate_2)
+    } else { # The distribution is log-normal
+      x0_test = rlnorm(n,meanlog=mu_0,sdlog=sigma_0)
+      x1_test = rlnorm(n,meanlog=mu_1,sdlog=sigma_1)
+      x2_test = rlnorm(n,meanlog=mu_2,sdlog=sigma_2)
     }
     x_test = c(x0_test,x1_test,x2_test)
     
@@ -118,35 +162,35 @@ subBasisFunc = function(id) {
   result = switch(as.character(id),
    `1`  = 2, # code for log(x)
    `2`  = function(x) log(abs(x))^2,
-   `3`  = function(x) c(log(abs(x)), log(abs(x))^2),
+   `3`  = function(x) c(log(abs(x)), log(abs(x))^2), # True basis function for lognormal
    `4`  = 3, # code for sqrt(x)
    `5`  = function(x) c(log(abs(x)), sqrt(abs(x))),
    `6`  = function(x) c(log(abs(x))^2, sqrt(abs(x))),
-   `7`  = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x))),
+   `7`  = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x))), # sub for lognormal
    `8`  = 1, # code for x
    `9`  = 6, # code for log(x), x - true basis function for gamma
    `10` = function(x) c(log(abs(x))^2, x),
-   `11` = function(x) c(log(abs(x)), log(abs(x))^2, x), # sub for gamma
+   `11` = function(x) c(log(abs(x)), log(abs(x))^2, x), # sub for gamma, lognormal
    `12` = function(x) c(sqrt(abs(x)), x),
    `13` = 7, # code for log(x), sqrt(x), x, sub for gamma
    `14` = function(x) c(log(abs(x))^2, sqrt(abs(x)), x),
-   `15` = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x)), x), # sub for gamma
+   `15` = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x)), x), # sub for gamma, lognormal
    `16` = 4, # code for x^2
    `17` = function(x) c(log(abs(x)), x^2),
    `18` = function(x) c(log(abs(x))^2, x^2),
-   `19` = function(x) c(log(abs(x)), log(abs(x))^2, x^2),
+   `19` = function(x) c(log(abs(x)), log(abs(x))^2, x^2), # sub for lognormal
    `20` = function(x) c(sqrt(abs(x)), x^2),
    `21` = 8, # code for log(x), sqrt(x), x^2
    `22` = function(x) c(log(abs(x))^2, sqrt(abs(x)), x^2),
-   `23` = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x)), x^2),
+   `23` = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x)), x^2), # sub for lognormal
    `24` = 5, # code for x, x^2 - true basis function for normal
    `25` = 9, # code for log(x), x, x^2, sub for gamma
    `26` = function(x) c(log(abs(x))^2, x, x^2),
-   `27` = function(x) c(log(abs(x)), log(abs(x))^2, x, x^2),  # sub for gamma
+   `27` = function(x) c(log(abs(x)), log(abs(x))^2, x, x^2),  # sub for gamma, lognormal
    `28` = 10, # code for srqt(x), x, x^2 
    `29` = 11, # code for log(x), sqrt(x), x, x^2, sub for gamma
    `30` = function(x) c(log(abs(x))^2, sqrt(abs(x)), x, x^2),
-   `31` = 12  # code for log(x), log(x)^2, sqrt(x), x, x^2, sub for gamma
+   `31` = 12  # code for log(x), log(x)^2, sqrt(x), x, x^2, sub for gamma, lognormal
    # To compute sub-basis proportion:
    # IDs 24-31 contain the normal basis function
    # IDs 9, 11, 13, 15, 25, 27, 29, 31 contain the gamma basis function
@@ -158,31 +202,71 @@ subBasisFunc = function(id) {
 
 # Define a wrapper to run simulations but based purely on the AIC/BIC of the MELEs of the sub-functions,
 # as defined by Fokianos (2007)
-simAICBIC = function(distribution, n, runs = 1000){
+simAICBIC = function(distribution, paramSetup, n, runs = 1000){
   # Ensure distribution is normal or gamma
-  if(!(distribution %in% c("normal", "gamma"))){
-    stop('Invalid distribution string passed. Currently only "normal" and "gamma" are supported.')
+  if(!(distribution %in% c("normal", "gamma", "lognormal"))){
+    stop('Invalid distribution string passed. Currently only "normal", "lognormal" and "gamma" are supported.')
   }
   
   # Define parameters for the distributions
-  if(distribution == "normal"){
-    mu_0 = 2
-    mu_1 = 1.8
-    mu_2 = 1.9
-    sigma_0 = 2
-    sigma_1 = 0.89
-    sigma_2 = 0.875
-  } else if (distribution == "gamma"){
-    rate_0 = 2
-    rate_1 = 1.4
-    rate_2 = 1.2
-    shape_0 = 1.8
-    shape_1 = 1.2
-    shape_2 = 1
+  if(distribution == "normal" || distribution == "lognormal"){
+    if (paramSetup == 1){
+      mu_0 = 2
+      mu_1 = 1.8
+      mu_2 = 1.9
+      sigma_0 = 2
+      sigma_1 = 0.89
+      sigma_2 = 0.875
+    } else if (paramSetup == 2){
+      mu_0 = 5
+      mu_1 = 4.5
+      mu_2 = 5.5
+      sigma_0 = 1.5
+      sigma_1 = 1.25
+      sigma_2 = 1
+    } else if (paramSetup == 3){
+      mu_0 = 18
+      mu_1 = 17
+      mu_2 = 19
+      sigma_0 = 6
+      sigma_1 = 6.5
+      sigma_2 = 7
+    } else {
+      stop("An invalid code was passed to paramSetup. Currently only 1, 2, and 3 are supported.")
+    }
+  } else if(distribution == "gamma") { 
+    if (paramSetup == 1){
+      rate_0 = 2
+      rate_1 = 1.4
+      rate_2 = 1.2
+      shape_0 = 1.8
+      shape_1 = 1.2
+      shape_2 = 1
+    } else if (paramSetup == 2){
+      rate_0 = 1
+      rate_1 = 1.25
+      rate_2 = 1.5
+      shape_0 = 4
+      shape_1 = 3
+      shape_2 = 2
+    } else if (paramSetup == 3){
+      rate_0 = 1
+      rate_1 = 0.9
+      rate_2 = 0.8
+      shape_0 = 6
+      shape_1 = 7
+      shape_2 = 8
+    } else {
+      stop("An invalid code was passed to paramSetup. Currently only 1, 2, and 3 are supported.")
+    }
   }
   
   # Set the seed based on the sample size
-  if(n == 250){
+  if(n == 50){
+    set.seed(18)
+  } else if (n == 100){
+    set.seed(19)
+  } else if(n == 250){
     set.seed(20)
   } else if (n == 500){
     set.seed(21)
@@ -224,10 +308,14 @@ simAICBIC = function(distribution, n, runs = 1000){
       x0_test = rnorm(n,mu_0,sigma_0)
       x1_test = rnorm(n,mu_1,sigma_1)
       x2_test = rnorm(n,mu_2,sigma_2)
-    } else{ # The distribution is gamma
+    } else if(distribution == "gamma") { 
       x0_test = rgamma(n,shape=shape_0,rate=rate_0)
       x1_test = rgamma(n,shape=shape_1,rate=rate_1)
       x2_test = rgamma(n,shape=shape_2,rate=rate_2)
+    } else { # The distribution is log-normal
+      x0_test = rlnorm(n,meanlog=mu_0,sdlog=sigma_0)
+      x1_test = rlnorm(n,meanlog=mu_1,sdlog=sigma_1)
+      x2_test = rlnorm(n,meanlog=mu_2,sdlog=sigma_2)
     }
     x_test = c(x0_test,x1_test,x2_test)
     
@@ -279,8 +367,8 @@ summariseSim = function(distribution, file_name, basis_func, tol){
   }
   
   # Ensure distribution string is valid
-  if(!(distribution %in% c("normal", "gamma"))){
-    print('Invalid distribution string passed. Currently only "normal" and "gamma" are supported.')
+  if(!(distribution %in% c("normal", "gamma", "lognormal"))){
+    print('Invalid distribution string passed. Currently only "normal", "lognormal and "gamma" are supported.')
     return(-1)
   }
   
@@ -304,6 +392,8 @@ summariseSim = function(distribution, file_name, basis_func, tol){
   # This may need to be changed conditionally if other distributions or other basis functions are used
   if(distribution == "gamma"){
     condStr = "1.$|4.$"
+  } else if (distribution == "lognormal"){
+    condStr = "1.$|2.$"
   } else{ # distribution is normal
     condStr = "4.$|5.$"
   }
@@ -414,8 +504,8 @@ summariseAICBICSim = function(distribution, file_name){
   }
   
   # Ensure distribution string is valid
-  if(!(distribution %in% c("normal", "gamma"))){
-    print('Invalid distribution string passed. Currently only "normal" and "gamma" are supported.')
+  if(!(distribution %in% c("normal", "gamma", "lognormal"))){
+    print('Invalid distribution string passed. Currently only "normal", "lognormal" and "gamma" are supported.')
     return(-1)
   }
   
@@ -431,6 +521,9 @@ summariseAICBICSim = function(distribution, file_name){
   if(distribution == "gamma"){
     consistID = 9
     consistSubIDs = c(9, 11, 13, 15, 25, 27, 29, 31)
+  } else if (distribution == "lognormal"){
+    consistID = 3
+    consistSubIDs = c(3, 7, 11, 15, 19, 23, 27, 31)
   } else{ # distribution is normal
     consistID = 24
     consistSubIDs = 24:31
