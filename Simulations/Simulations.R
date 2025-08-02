@@ -2,10 +2,16 @@
 
 # Call init.R to setup shared library and all functions
 # This should be run with the working directory as the project root
+# It will not change the working directory
 source("R\\init.R")
 
+# Set working directory to Data folder - all simulation results will be saved here
+# Also, other functions will pull data from here to compute summary statistics and must be called from this folder
+setwd("..")
+setwd("Data")
+
 # Set parameter values
-distribution = "normal"
+distribution = "gamma"
 paramSetup = 3
 n = 1000
 model = 12
@@ -28,20 +34,20 @@ if(model %in% 1:4){
   stop("Invalid model provided - adjust the program header.")
 }
 
-# Run simulation
-simData = runSimulation(distribution, paramSetup, n, d, model, lambdaVals, adaptive = adaptive, runs = runs)
-
-# Setwd back to data folder
-# setwd("..")
-# setwd("Data")
-
-# Write data
-simDataDf = as.data.frame(simData)
+# Create string for estimator type
 if(adaptive){
   adapStr = "adap"
 } else{
   adapStr = "reg"
 }
+
+### lasso-drm simulation ###
+# Run simulation
+simData = runSimulation(distribution, paramSetup, n, d, model, lambdaVals, adaptive = adaptive, runs = runs)
+
+# Write data
+simDataDf = as.data.frame(simData)
+
 fileName = paste0(paste("sim_results", distribution, paramSetup, adapStr, n, sep = "_"), ".csv")
 write.csv(simDataDf, fileName, row.names = FALSE)
 
@@ -49,6 +55,7 @@ write.csv(simDataDf, fileName, row.names = FALSE)
 simSum = summariseSim(distribution, fileName, basis_func = model, tol = 1e-12)
 print(simSum)
 
+### AIC/BIC simulation ###
 # Run the same simulation using the AIC/BIC method
 AICBICSimData = simAICBIC(distribution, paramSetup, n, runs = runs)
 AICBICSimDataDf = as.data.frame(AICBICSimData)
@@ -60,5 +67,8 @@ write.csv(AICBICSimDataDf, fileNameAICBIC, row.names = FALSE)
 AICBICSum = summariseAICBICSim(distribution, fileNameAICBIC)
 print(AICBICSum)
 
-# Finally reset wd
-# setwd("..")
+
+# Check results for multiple simulations, if desired:
+
+checkAllSims(3, "normal", 1000)
+checkAllSims(3,"gamma", 1000)
