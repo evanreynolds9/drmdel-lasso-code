@@ -6,7 +6,7 @@
 # Lasso functionality added by Evan Reynolds, 2024
 # ##############################
 
-bcgd = function(theta_0, x ,n_total, n_samples, m, d, model, lambda, pen_g = rep(1,d),
+bcgd = function(theta_0, x, n_total, n_samples, m, d, model, lambda, pen_g = rep(1,d),
                 max_iters = 1000, threshold = 1e-6, omega_0 = 1, psi = 0.5, sigma = 0.1){
   # Optimize the drm group lasso objective function with bcgd,
   # starting at a given value of parameter.
