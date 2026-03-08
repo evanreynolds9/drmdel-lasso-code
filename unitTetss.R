@@ -61,7 +61,7 @@ testthat("Check that the bcgd function works properly on a minimal example.", {
   expect_equal(
     bcgd(
       theta_0=theta_test_0, x=x_test, n_total=n_total_test, n_samples=n_samples_test,
-      m=m_test, d=d_test, model=model_test, lambda=lambda_test, max_iters=max_iters_test
+      m=m_test, model=model_test, d=d_test, lambda=lambda_test, max_iters=max_iters_test
     ),
     expected_bcgd_output
   )
@@ -70,7 +70,7 @@ testthat("Check that the bcgd function works properly on a minimal example.", {
   expect_equal(
     bcgd(
       theta_0=theta_test_0, x=x_test, n_total=n_total_test, n_samples=n_samples_test,
-      m=m_test, d=d_test, model=model_test, lambda=lambda_test, max_iters=100, threshold=0.1
+      m=m_test, model=model_test, d=d_test, lambda=lambda_test, max_iters=100, threshold=0.1
     ),
     expected_bcgd_output
   )
@@ -79,7 +79,7 @@ testthat("Check that the bcgd function works properly on a minimal example.", {
   expect_false(
     bcgd(
       theta_0=theta_test_0, x=x_test, n_total=n_total_test, n_samples=n_samples_test,
-      m=m_test, d=d_test, model=model_test, lambda=lambda_test, max_iters=100, threshold=0.01
+      m=m_test, model=model_test, d=d_test, lambda=lambda_test, max_iters=100, threshold=0.01
     ) == expected_bcgd_output
   )
 })
@@ -174,9 +174,117 @@ testthat("Check a slightly more complex version for one iteration.", {
     # Validate Gradient
     bcgd(
       theta_0=theta_test_0, x=x_test, n_total=n_total_test, n_samples=n_samples_test,
-      m=m_test, d=d_test, model=model_test, lambda=lambda_test, max_iters=max_iters_test
+      m=m_test, model=model_test, d=d_test, lambda=lambda_test, max_iters=max_iters_test
     ),
     list(obj = obj_final, iters = 1, par = theta_test_final)
   )
 })
 
+
+testthat("Test the AIC/BIC function", {
+  x_test = c(1, 1, 2, 2, 3, 3)
+  n_samples_test = c(2, 2, 2)
+  n_total_test = length(x_test)
+  m_test = length(n_samples_test) - 1
+  d_test = 2
+  model_test = 5
+  
+  theta_test_1 = c(0, 0, 0, 0, 0, 0)
+  # This should just return 2*negLDL for both because there will be no parameter for the penalties
+  expect_equal(
+    aic_bic_drm(theta_test_1, x_test, n_total_test, n_samples_test, m_test, model_test, d_test),
+    rep(2*negLDL(theta_test_1, x_test, n_total_test, n_samples_test, m_test, model_test, d_test), 2)
+  )
+  
+  theta_test_2 = c(1, 0, 0, 1, 0, 0)
+  # These should also equal because we don't penalize the intercept
+  expect_equal(
+    aic_bic_drm(theta_test_2, x_test, n_total_test, n_samples_test, m_test, model_test, d_test),
+    rep(2*negLDL(theta_test_2, x_test, n_total_test, n_samples_test, m_test, model_test, d_test), 2)
+  )
+  
+  fn = function(x){
+    return(c(x,x^2))
+  }
+  # These should return the same, the function will just use the user function in the second case
+  expect_equal(
+    aic_bic_drm(theta_test_2, x_test, n_total_test, n_samples_test, m_test, model_test, d_test),
+    aic_bic_drm(theta_test_2, x_test, n_total_test, n_samples_test, m_test, fn, d_test)
+  )
+  
+  theta_test_3 = c(1, 1, 0, 1, 1, 0)
+  ldlVal3 = negLDL(theta_test_3, x_test, n_total_test, n_samples_test, m_test, model_test, d_test)
+  # we should be adding 2*2 = 4 to AIC, 2*log(n) to BIC
+  expect_equal(
+    aic_bic_drm(theta_test_3, x_test, n_total_test, n_samples_test, m_test, model_test, d_test),
+    c(2*ldlVal3 + 4, 2*ldlVal3 + 2*log(n_total_test))
+  )
+  
+  # If the values are less than the set tolerance, we should again get the LDL values
+  theta_test_4 = c(1, 1e-13, 0, 1, 1e-13, 0)
+  # we should be adding 2*2 = 4 to AIC, 2*log(n) to BIC
+  expect_equal(
+    aic_bic_drm(theta_test_4, x_test, n_total_test, n_samples_test, m_test, model_test, d_test),
+    rep(2*negLDL(theta_test_4, x_test, n_total_test, n_samples_test, m_test, model_test, d_test), 2)
+  )
+})
+
+
+testthat("Test the SolutionPath function", {
+  # Set variables
+  x_test = c(rep(1,5), rep(2,5), rep(3,5))
+  n_samples_test = rep(5,3)
+  n_total_test = length(x_test)
+  m_test = length(n_samples_test) - 1
+  d_test = 5
+  model_test = 12
+  
+  # Confirm that function returns -1 if we pass a negative lambda value
+  lambda_vals_0 = c(-1,1)
+  expect_equal(
+    solutionPath(x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambdaVals = lambda_vals_0),
+    -1
+  )
+  
+  # Confirm that if we don't pass 0, we get the same result as passing 0
+  lambda_vals_1_a = c(0,1)
+  lambda_vals_1_b = c(1)
+  expect_equal(
+    solutionPath(x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambdaVals = lambda_vals_1_a),
+    solutionPath(x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambdaVals = lambda_vals_1_b)
+  )
+  
+  # Actually confirm what the values should be
+  lambda_vals_2 = c(1,2)
+  drm = drmdel(x=x_test, n_samples=n_samples_test, basis_func=model_test)
+  aic_bic_mele = aic_bic_drm(theta = drm$mele, x=x_test, n_total=n_total_test, n_samples=n_samples_test, m=m_test, basis_func=model_test, d=d_test)
+  bcgd1 = bcgd(
+    theta_0=drm$mele, x=x_test, n_total=n_total_test, n_samples=n_samples_test, m=m_test, model=model_test, d=d_test, lambda=lambda_vals_2[1]
+  )
+  aic_bic_1 = aic_bic_drm(theta = bcgd1$par, x=x_test, n_total=n_total_test, n_samples=n_samples_test, m=m_test, basis_func=model_test, d=d_test)
+  bcgd2 = bcgd(
+    theta_0=bcgd1$par, x=x_test, n_total=n_total_test, n_samples=n_samples_test, m=m_test, model=model_test, d=d_test, lambda=lambda_vals_2[2]
+  )
+  aic_bic_2 = aic_bic_drm(theta = bcgd2$par, x=x_test, n_total=n_total_test, n_samples=n_samples_test, m=m_test, basis_func=model_test, d=d_test)
+  expected_return_matrix = matrix(
+    c(0, 0, drm$negldl, aic_bic_mele, drm$mele,
+      lambda_vals_2[1], bcgd1$iters, bcgd1$obj, aic_bic_1, bcgd1$par,
+      lambda_vals_2[2], bcgd2$iters, bcgd2$obj, aic_bic_2, bcgd2$par
+    ), nrow=length(lambda_vals_2)+1, ncol=length(drm$mele) + 5, byrow=TRUE
+  )
+  colnames(expected_return_matrix) = c("Lambda", "Iters", "Obj", "AIC", "BIC", names(drm$mele))
+  
+  # Run the test
+  expect_equal(
+    solutionPath(x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambdaVals = lambda_vals_2),
+    expected_return_matrix
+  )
+  
+  # Test that the lambda vals are sorting as they should be
+  lambda_vals_3_a = c(1,2)
+  lambda_vals_3_b = c(2,1)
+  expect_equal(
+    solutionPath(x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambdaVals = lambda_vals_3_a),
+    solutionPath(x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambdaVals = lambda_vals_3_b)
+  )
+})

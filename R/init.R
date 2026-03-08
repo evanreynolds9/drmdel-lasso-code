@@ -26,7 +26,7 @@ source("R\\drmdelLasso.R")
 
 # Define a wrapper function to run simulations for the default distributions and parameter values
 # These are gamma and normal distributions
-runSimulation = function(distribution, paramSetup, n, d, model, lambdaVals, adaptive = FALSE, runs = 1000){
+runSimulation = function(distribution, paramSetup, n, model, d, lambdaVals, adaptive = FALSE, runs = 1000){
   # x ,n_total, n_samples, m, d, model, lambda_vals, adaptive = FALSE
   
   # Ensure distribution is normal or gamma
@@ -145,7 +145,7 @@ runSimulation = function(distribution, paramSetup, n, d, model, lambdaVals, adap
     
     # compute solution path
     solPath = solutionPath(x = x_test, n_total = n_total, n_samples = n_samples, 
-                           m = m, d = d, model = model, lambdaVals, adaptive = adaptive)
+                           m = m, model = model, d = d, lambdaVals, adaptive = adaptive)
     
     # Set the values of simulationResults
     simulationResults[(1+pathLength*(i-1)):(pathLength*i), 1] = i # Set first column to run iteration

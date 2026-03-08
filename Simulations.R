@@ -43,7 +43,7 @@ if(adaptive){
 
 ### lasso-drm simulation ###
 # Run simulation
-simData = runSimulation(distribution, paramSetup, n, d, model, lambdaVals, adaptive = adaptive, runs = runs)
+simData = runSimulation(distribution, paramSetup, n, model, d, lambdaVals, adaptive = adaptive, runs = runs)
 
 # Write data
 simDataDf = as.data.frame(simData)

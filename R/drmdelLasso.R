@@ -6,7 +6,7 @@
 # Lasso functionality added by Evan Reynolds, 2024
 # ##############################
 
-bcgd = function(theta_0, x, n_total, n_samples, m, d, model, lambda, pen_g = rep(1,d),
+bcgd = function(theta_0, x, n_total, n_samples, m, model, d, lambda, pen_g = rep(1,d),
                 max_iters = 1000, threshold = 1e-6, omega_0 = 1, psi = 0.5, sigma = 0.1){
   # Optimize the drm group lasso objective function with bcgd,
   # starting at a given value of parameter.
@@ -60,7 +60,7 @@ aic_bic_drm = function(theta, x, n_total, n_samples, m, basis_func, d){
   return(c(2*negLDLVal+2*pen,2*negLDLVal+log(n_total)*pen))
 }
 
-solutionPath = function(x ,n_total, n_samples, m, d, model, lambdaVals, adaptive = FALSE){
+solutionPath = function(x, n_total, n_samples, m, model, d, lambdaVals, max_iters = 1000, adaptive = FALSE){
   # Generate a solution path for given data
   # Can compute multiple solution paths to accommodate simulation studies
   # By default, the solution path will always
@@ -117,16 +117,16 @@ solutionPath = function(x ,n_total, n_samples, m, d, model, lambdaVals, adaptive
     if(lambda == 0){ # Compute mele
       sim_results[i, 2] = 0
       sim_results[i, 3] = mele_obj
-      aic_bic = aic_bic_drm(mele, x, n_total ,n_samples, m, model, d)
+      aic_bic = aic_bic_drm(mele, x, n_total, n_samples, m, model, d)
       sim_results[i, 4] = aic_bic[1]
       sim_results[i, 5] = aic_bic[2]
       sim_results[i, 6:totalCols] = mele
     } else {
       # Compute bcgd optimization
-      bcgdOpts = bcgd(init_theta, x ,n_total, n_samples, m, d, model, lambda, pen_g = pen_g)
+      bcgdOpts = bcgd(init_theta, x, n_total, n_samples, m, model, d, lambda, pen_g = pen_g, max_iters = max_iters)
       sim_results[i, 2] = bcgdOpts$iters
       sim_results[i, 3] = bcgdOpts$obj
-      aic_bic = aic_bic_drm(bcgdOpts$par, x, n_total ,n_samples, m, model, d)
+      aic_bic = aic_bic_drm(bcgdOpts$par, x, n_total, n_samples, m, model, d)
       sim_results[i, 4] = aic_bic[1]
       sim_results[i, 5] = aic_bic[2]
       sim_results[i, 6:totalCols] = bcgdOpts$par
