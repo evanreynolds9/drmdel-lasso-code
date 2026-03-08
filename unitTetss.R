@@ -16,7 +16,7 @@ source("R\\init.R")
 # x_1 = (2,2)
 # lambda = 1
 
-testthat("Check that the bcgd function works properly on a minimal example.", {
+test_that("Check that the bcgd function works properly on a minimal example.", {
   # Set variables
   x_test = c(1,1,2,2)
   n_samples_test = c(2,2)
@@ -77,10 +77,10 @@ testthat("Check that the bcgd function works properly on a minimal example.", {
   
   # But if we drop this back down to 0.01, we should get a different answer
   expect_false(
-    bcgd(
+    identical(bcgd(
       theta_0=theta_test_0, x=x_test, n_total=n_total_test, n_samples=n_samples_test,
       m=m_test, model=model_test, d=d_test, lambda=lambda_test, max_iters=100, threshold=0.01
-    ) == expected_bcgd_output
+    ), expected_bcgd_output)
   )
 })
 
@@ -96,7 +96,7 @@ testthat("Check that the bcgd function works properly on a minimal example.", {
 # x_2 = (3,3)
 # lambda = 1
 
-testthat("Check a slightly more complex version for one iteration.", {
+test_that("Check a slightly more complex version for one iteration.", {
   # Set variables
   x_test = c(1, 1, 2, 2, 3, 3)
   n_samples_test = c(2, 2, 2)
@@ -181,7 +181,7 @@ testthat("Check a slightly more complex version for one iteration.", {
 })
 
 
-testthat("Test the AIC/BIC function", {
+test_that("Test the AIC/BIC function", {
   x_test = c(1, 1, 2, 2, 3, 3)
   n_samples_test = c(2, 2, 2)
   n_total_test = length(x_test)
