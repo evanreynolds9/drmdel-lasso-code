@@ -130,7 +130,7 @@ test_that("Check a slightly more complex version for one iteration.", {
   # When g == 0 (intercept)
   obj0 = negLDLGL(theta_test_0, x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambda_test)
   grad0 = negLDLGr(theta_test_0, x_test, n_total_test, n_samples_test, m_test, model_test, d_test)[idx0]
-  hess0 = max(diag(negLDLHessian(theta_0_test_0, x_test, n_total_test, n_samples_test, m_test, model_test, d_test))[idx0])
+  hess0 = max(diag(negLDLHessian(theta_test_0, x_test, n_total_test, n_samples_test, m_test, model_test, d_test))[idx0])
   d_g_0 = (1/hess0)*(-1)*grad0 # basically 0s
   delta_0 = sum(grad0*d_g_0) + negLDLGL(theta_test_0 + d_g_0, x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambda_test) - obj0 
   w_0 = weight_finder(theta_test_0, d_g_0, x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambda_test, omega_test, psi_test, sigma_test, obj0, delta_0)
@@ -230,7 +230,7 @@ test_that("Test the AIC/BIC function", {
 })
 
 
-testthat("Test the SolutionPath function", {
+test_that("Test the SolutionPath function", {
   # Set variables
   x_test = c(rep(1,5), rep(2,5), rep(3,5))
   n_samples_test = rep(5,3)
