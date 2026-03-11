@@ -6,6 +6,8 @@ library(testthat)
 # Load functions
 source("R\\init.R")
 
+### TEST DRMDELLASSO FUNCTIONS ###
+
 # Test bcgd
 # Case 1:
 # Basis function = x
@@ -287,4 +289,78 @@ test_that("Test the SolutionPath function", {
     solutionPath(x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambdaVals = lambda_vals_3_a),
     solutionPath(x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambdaVals = lambda_vals_3_b)
   )
+})
+
+
+### TEST INIT FUNCTIONS ###
+
+test_that("Test the runSimulation function",{
+  # Set some variables
+  distribution_test = "gamma"
+  paramSetup_test = 1
+  n_test = 50
+  model_test = 6
+  d_test = 2
+  lambdaVals_test = c(0,1)
+  n_samples_test = rep(n_test, 3)
+  m_test = length(n_samples_test) - 1
+  n_total_test = sum(n_samples_test)
+  runs_test = 1
+  
+  # Test for some basic errors
+  # Expect error when invalid distribution is passed
+  expect_error(runSimulation(distribution = "thisisnotadistn", paramSetup = paramSetup_test, 
+                             n = n_test, model = model_test, d = d_test, lambdaVals = lambdaVals_test))
+  # Expect error when passing an invalid paramsetup code
+  expect_error(runSimulation(distribution = distribution_test, paramSetup = 99999, 
+                             n = n_test, model = model_test, d = d_test, lambdaVals = lambdaVals_test))
+  
+  # Compute simulationpath for one run
+  # Set expected seed and create x_test
+  set.seed(18)
+  # Set parameters
+  rate_0 = 2
+  rate_1 = 1.4
+  rate_2 = 1.2
+  shape_0 = 1.8
+  shape_1 = 1.2
+  shape_2 = 1
+  # Compute random samples
+  x0_test = rgamma(n_test,shape=shape_0,rate=rate_0)
+  x1_test = rgamma(n_test,shape=shape_1,rate=rate_1)
+  x2_test = rgamma(n_test,shape=shape_2,rate=rate_2)
+  x_test = c(x0_test,x1_test,x2_test)
+  
+  simPath_test = solutionPath(x=x_test,n_total=n_total_test,n_samples=n_samples_test,
+                              m=m_test,model=model_test,d=d_test,lambdaVals=lambdaVals_test)
+  simPath_test = cbind(c(rep(1, nrow(simPath_test))), simPath_test)
+  colnames(simPath_test) = c("Run", colnames(simPath_test[, -1]))
+  
+  # Compute output
+  simPathOutput = runSimulation(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, 
+                                model=model_test, d=d_test,lambdaVals = lambdaVals_test, runs = 1)
+  
+  # Confirm equality
+  expect_equal(simPath_test, simPathOutput)
+  
+  # Check that output is the same when 0 isn't in the lambda values
+  simPathOutput2 = runSimulation(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, 
+                                model=model_test, d=d_test,lambdaVals = c(1), runs = 1) 
+  
+  expect_equal(simPathOutput, simPathOutput2)
+  
+  
+  # Confirm for the adaptive case as well
+
+  # Run computations
+  simPath_test_adap = solutionPath(x=x_test,n_total=n_total_test,n_samples=n_samples_test,
+                              m=m_test,model=model_test,d=d_test,lambdaVals=lambdaVals_test, adaptive = TRUE)
+  simPath_test_adap = cbind(c(rep(1, nrow(simPath_test_adap))), simPath_test_adap)
+  colnames(simPath_test_adap) = c("Run", colnames(simPath_test_adap[, -1]))
+  
+  # Compute output
+  simPathOutputAdap = runSimulation(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, 
+                                model=model_test, d=d_test,lambdaVals = lambdaVals_test, adaptive = TRUE, runs = 1)
+  # Expect equality again
+  expect_equal(simPath_test_adap, simPathOutputAdap)
 })

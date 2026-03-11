@@ -122,7 +122,6 @@ runSimulation = function(distribution, paramSetup, n, model, d, lambdaVals, adap
   }
   
   # Create matrix for simulation results
-  pathLength = length(lambdaVals)
   simulationResults = matrix(0, nrow = runs*pathLength, ncol = 2*(d+1) + 6)
   
   # Populate matrix by generating solution paths
