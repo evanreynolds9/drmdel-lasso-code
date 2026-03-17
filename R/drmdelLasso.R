@@ -24,8 +24,7 @@ bcgd = function(theta_0, x, n_total, n_samples, m, model, d, lambda, pen_g = rep
   
   # End function if pen_g has length not equal to d
   if(length(pen_g) != d){
-    print("Length of penalty does not equal length of basis function!")
-    return(-1)
+    stop("Length of penalty does not equal length of basis function!")
   }
   
   
@@ -71,8 +70,7 @@ solutionPath = function(x, n_total, n_samples, m, model, d, lambdaVals, max_iter
   
   # Abort process if any lambda's are not positive
   if(sum(lambdaVals < 0) != 0){
-    print("Negative lambda values detected in solution path, aborting simulation.")
-    return(-1)
+    stop("Negative lambda values detected in solution path, aborting simulation.")
   }
   
   # Check if 0 is in lamdba_vals, add it if not

@@ -24,14 +24,31 @@ setwd("..")
 # Load the R wrappers from the R folder
 source("R\\drmdelLasso.R")
 
-# Define a wrapper function to run simulations for the default distributions and parameter values
-# These are gamma and normal distributions
-runSimulation = function(distribution, paramSetup, n, model, d, lambdaVals, adaptive = FALSE, runs = 1000){
-  # x ,n_total, n_samples, m, d, model, lambda_vals, adaptive = FALSE
-  
-  # Ensure distribution is normal or gamma
+# Define a function that will generate a random number generator according to parameter specifications
+# Currently, this only supports 3-sample parameter setups
+createRandomGenerator = function(distribution, paramSetup, n){
+  # Ensure distribution is normal, lognormal, or gamma
   if(!(distribution %in% c("normal", "gamma", "lognormal"))){
     stop('Invalid distribution string passed. Currently only "normal", "lognormal" and "gamma" are supported.')
+  }
+  
+  # Set the seed for random number generation according to sample size
+  if(n == 50){
+    set.seed(18)
+  } else if (n == 100){
+    set.seed(19)
+  } else if(n == 250){
+    set.seed(20)
+  } else if (n == 500){
+    set.seed(21)
+  } else if (n == 1000){
+    set.seed(22)
+  } else if (n == 2500){
+    set.seed(23)
+  } else if (n == 5000){
+    set.seed(24)
+  } else {
+    stop("An invalid sample size (individual) was provided. Currently only 50, 250, 500, 1000, 2500 and 5000 are supported.")
   }
   
   # Define parameters for the distributions
@@ -60,6 +77,21 @@ runSimulation = function(distribution, paramSetup, n, model, d, lambdaVals, adap
     } else {
       stop("An invalid code was passed to paramSetup. Currently only 1, 2, and 3 are supported.")
     }
+    if(distribution == "normal"){
+      randomGenerator = function(){
+        x0_test = rnorm(n,mean=mu_0,sd=sigma_0)
+        x1_test = rnorm(n,mean=mu_1,sd=sigma_1)
+        x2_test = rnorm(n,mean=mu_2,sd=sigma_2)
+        return(c(x0_test, x1_test, x2_test))
+      }
+    } else { # Distribution is lognormal
+      randomGenerator = function(){
+        x0_test = rlnorm(n,meanlog=mu_0,sdlog=sigma_0)
+        x1_test = rlnorm(n,meanlog=mu_1,sdlog=sigma_1)
+        x2_test = rlnorm(n,meanlog=mu_2,sdlog=sigma_2)
+        return(c(x0_test, x1_test, x2_test))
+      }
+    }
   } else if(distribution == "gamma") { 
     if (paramSetup == 1){
       rate_0 = 2
@@ -85,33 +117,32 @@ runSimulation = function(distribution, paramSetup, n, model, d, lambdaVals, adap
     } else {
       stop("An invalid code was passed to paramSetup. Currently only 1, 2, and 3 are supported.")
     }
+    # Define generator function
+    randomGenerator = function(){
+      x0_test = rgamma(n,shape=shape_0,rate=rate_0)
+      x1_test = rgamma(n,shape=shape_1,rate=rate_1)
+      x2_test = rgamma(n,shape=shape_2,rate=rate_2)
+      return(c(x0_test, x1_test, x2_test))
+    } 
   }
   
-  # Set the seed based on the sample size
-  if(n == 50){
-    set.seed(18)
-  } else if (n == 100){
-    set.seed(19)
-  } else if(n == 250){
-    set.seed(20)
-  } else if (n == 500){
-    set.seed(21)
-  } else if (n == 1000){
-    set.seed(22)
-  } else if (n == 2500){
-    set.seed(23)
-  } else if (n == 5000){
-    set.seed(24)
-  } else {
-    stop("An invalid sample size (individual) was provided. Currently only 250, 500, 1000, 2500 and 5000 are supported.")
-  }
-  
+  # Return the generator
+  return(randomGenerator)
+}
+
+
+# Define a wrapper function to run simulations for the default distributions and parameter values
+# These are gamma and normal distributions
+runSimulation = function(distribution, paramSetup, n, model, d, lambdaVals, adaptive = FALSE, runs = 1000){
   # Set m - always setting to two for these simulation
   m = 2
   
   # Set n_total and n_samples
   n_samples = rep(n, m+1)
   n_total = sum(n_samples)
+  
+  # Create random number generator
+  x_generator = createRandomGenerator(distribution=distribution, paramSetup=paramSetup, n=n)
   
   # Compute path length, noting that 0 will be added if not passed
   # It will be added in the solution path function if not
@@ -127,20 +158,7 @@ runSimulation = function(distribution, paramSetup, n, model, d, lambdaVals, adap
   # Populate matrix by generating solution paths
   for(i in 1:runs){
     # Simulate data
-    if(distribution == "normal"){
-      x0_test = rnorm(n,mu_0,sigma_0)
-      x1_test = rnorm(n,mu_1,sigma_1)
-      x2_test = rnorm(n,mu_2,sigma_2)
-    } else if(distribution == "gamma") { 
-      x0_test = rgamma(n,shape=shape_0,rate=rate_0)
-      x1_test = rgamma(n,shape=shape_1,rate=rate_1)
-      x2_test = rgamma(n,shape=shape_2,rate=rate_2)
-    } else { # The distribution is log-normal
-      x0_test = rlnorm(n,meanlog=mu_0,sdlog=sigma_0)
-      x1_test = rlnorm(n,meanlog=mu_1,sdlog=sigma_1)
-      x2_test = rlnorm(n,meanlog=mu_2,sdlog=sigma_2)
-    }
-    x_test = c(x0_test,x1_test,x2_test)
+    x_test = x_generator()
     
     # compute solution path
     solPath = solutionPath(x = x_test, n_total = n_total, n_samples = n_samples, 
@@ -198,96 +216,25 @@ subBasisFunc = function(id) {
    # IDs 9, 11, 13, 15, 25, 27, 29, 31 contain the gamma basis function
   )
   
-  if (is.null(result)) stop("Invalid ID: must be 1 through 31")
+  if(is.null(result)){
+    stop("Invalid ID: must be 1 through 31")
+  }
+  
   return(result)
 }
 
 # Define a wrapper to run simulations but based purely on the AIC/BIC of the MELEs of the sub-functions,
 # as defined by Fokianos (2007)
 simAICBIC = function(distribution, paramSetup, n, runs = 1000){
-  # Ensure distribution is normal or gamma
-  if(!(distribution %in% c("normal", "gamma", "lognormal"))){
-    stop('Invalid distribution string passed. Currently only "normal", "lognormal" and "gamma" are supported.')
-  }
-  
-  # Define parameters for the distributions
-  if(distribution == "normal" || distribution == "lognormal"){
-    if (paramSetup == 1){
-      mu_0 = 2
-      mu_1 = 1.8
-      mu_2 = 1.9
-      sigma_0 = 2
-      sigma_1 = 0.89
-      sigma_2 = 0.875
-    } else if (paramSetup == 2){
-      mu_0 = 5
-      mu_1 = 4.5
-      mu_2 = 5.5
-      sigma_0 = 1.5
-      sigma_1 = 1.25
-      sigma_2 = 1
-    } else if (paramSetup == 3){
-      mu_0 = 18
-      mu_1 = 17
-      mu_2 = 19
-      sigma_0 = 6
-      sigma_1 = 6.5
-      sigma_2 = 7
-    } else {
-      stop("An invalid code was passed to paramSetup. Currently only 1, 2, and 3 are supported.")
-    }
-  } else if(distribution == "gamma") { 
-    if (paramSetup == 1){
-      rate_0 = 2
-      rate_1 = 1.4
-      rate_2 = 1.2
-      shape_0 = 1.8
-      shape_1 = 1.2
-      shape_2 = 1
-    } else if (paramSetup == 2){
-      rate_0 = 1
-      rate_1 = 1.25
-      rate_2 = 1.5
-      shape_0 = 4
-      shape_1 = 3
-      shape_2 = 2
-    } else if (paramSetup == 3){
-      rate_0 = 1
-      rate_1 = 0.9
-      rate_2 = 0.8
-      shape_0 = 6
-      shape_1 = 7
-      shape_2 = 8
-    } else {
-      stop("An invalid code was passed to paramSetup. Currently only 1, 2, and 3 are supported.")
-    }
-  }
-  
-  # Set the seed based on the sample size
-  if(n == 50){
-    set.seed(18)
-  } else if (n == 100){
-    set.seed(19)
-  } else if(n == 250){
-    set.seed(20)
-  } else if (n == 500){
-    set.seed(21)
-  } else if (n == 1000){
-    set.seed(22)
-  } else if (n == 2500){
-    set.seed(23)
-  } else if (n == 5000){
-    set.seed(24)
-  } else {
-    stop("An invalid sample size (individual) was provided. Currently only 250, 500, 1000, 2500 and 5000 are supported.")
-  }
-  
   # Set m - always setting to two for these simulation
   m = 2
   
   # Set n_total and n_samples
   n_samples = rep(n, m+1)
   n_total = sum(n_samples)
+  
+  # Create random number generator
+  x_generator = createRandomGenerator(distribution=distribution, paramSetup=paramSetup, n=n)
   
   # Setup matrix to store results
   # Only setup for basis function 12 right now - loop over all 31 options - so 31 rows per run
@@ -306,20 +253,7 @@ simAICBIC = function(distribution, paramSetup, n, runs = 1000){
   for(i in 1:runs){
     # Generate random data
     # Simulate data
-    if(distribution == "normal"){
-      x0_test = rnorm(n,mu_0,sigma_0)
-      x1_test = rnorm(n,mu_1,sigma_1)
-      x2_test = rnorm(n,mu_2,sigma_2)
-    } else if(distribution == "gamma") { 
-      x0_test = rgamma(n,shape=shape_0,rate=rate_0)
-      x1_test = rgamma(n,shape=shape_1,rate=rate_1)
-      x2_test = rgamma(n,shape=shape_2,rate=rate_2)
-    } else { # The distribution is log-normal
-      x0_test = rlnorm(n,meanlog=mu_0,sdlog=sigma_0)
-      x1_test = rlnorm(n,meanlog=mu_1,sdlog=sigma_1)
-      x2_test = rlnorm(n,meanlog=mu_2,sdlog=sigma_2)
-    }
-    x_test = c(x0_test,x1_test,x2_test)
+    x_test = x_generator()
     
     # Iterate over each basis function
     for(j in 1:subFuncs){
@@ -364,27 +298,23 @@ summariseSim = function(distribution, file_name, basis_func, tol){
   
   # Check this is being run in the data folder
   if(sub("^.*/", "", getwd()) != "Data"){
-    print("sumariseSim must be run from the Data folder!")
-    return(-1)
+    stop("sumariseSim must be run from the Data folder!")
   }
   
   # Ensure distribution string is valid
   if(!(distribution %in% c("normal", "gamma", "lognormal"))){
-    print('Invalid distribution string passed. Currently only "normal", "lognormal and "gamma" are supported.')
-    return(-1)
+    stop('Invalid distribution string passed. Currently only "normal", "lognormal and "gamma" are supported.')
   }
   
   # Ensure the basis function is valid
   if(basis_func != 12){
-    print('Invalid basis function passed. Currently 12 is supported.')
-    return(-1)
+    stop('Invalid basis function passed. Currently 12 is supported.')
   }
   
   # Import data, throwing an error if import fails
   simData = try(read.csv(file_name, header = TRUE), silent = TRUE)
   if(inherits(simData, "try-error")){
-    print("File not found. Double check the specified file name.")
-    return(-1)
+    stop("File not found. Double check the specified file name.")
   }
   
   # Get the number of runs
@@ -400,7 +330,7 @@ summariseSim = function(distribution, file_name, basis_func, tol){
     condStr = "4.$|5.$"
   }
   
-  # Compute proportion of paths with at least one consitent solution
+  # Compute proportion of paths with at least one consistent solution
   consistSols <- simData %>%
     filter(
       if_all(
@@ -501,21 +431,18 @@ summariseAICBICSim = function(distribution, file_name){
   
   # Check this is being run in the data folder
   if(sub("^.*/", "", getwd()) != "Data"){
-    print("sumariseSim must be run from the Data folder!")
-    return(-1)
+    stop("sumariseSim must be run from the Data folder!")
   }
   
   # Ensure distribution string is valid
   if(!(distribution %in% c("normal", "gamma", "lognormal"))){
-    print('Invalid distribution string passed. Currently only "normal", "lognormal" and "gamma" are supported.')
-    return(-1)
+    stop('Invalid distribution string passed. Currently only "normal", "lognormal" and "gamma" are supported.')
   }
   
   # Import data, throwing an error if import fails
   simData = try(read.csv(file_name, header = TRUE), silent = TRUE)
   if(inherits(simData, "try-error")){
-    print("File not found. Double check the specified file name.")
-    return(-1)
+    stop("File not found. Double check the specified file name.")
   }
   
   # Conditionally assign IDs for consistent solutions based on distribution

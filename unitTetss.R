@@ -241,11 +241,10 @@ test_that("Test the SolutionPath function", {
   d_test = 5
   model_test = 12
   
-  # Confirm that function returns -1 if we pass a negative lambda value
+  # Confirm that function throws error if we pass a negative lambda value
   lambda_vals_0 = c(-1,1)
-  expect_equal(
-    solutionPath(x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambdaVals = lambda_vals_0),
-    -1
+  expect_error(
+    solutionPath(x_test, n_total_test, n_samples_test, m_test, model_test, d_test, lambdaVals = lambda_vals_0)
   )
   
   # Confirm that if we don't pass 0, we get the same result as passing 0
@@ -294,6 +293,49 @@ test_that("Test the SolutionPath function", {
 
 ### TEST INIT FUNCTIONS ###
 
+test_that("Test createRandomGenerator function that sets seed and returns a random number generator",{
+  distribution_test = "gamma"
+  paramSetup_test = 1
+  n_test = 50
+  
+  # Test for some basic errors
+  # Expect error when invalid distribution is passed
+  expect_error(createRandomGenerator(distribution = "thisisnotadistn", paramSetup = paramSetup_test, 
+                             n = n_test))
+  # Expect error when passing an invalid paramsetup code
+  expect_error(createRandomGenerator(distribution = distribution_test, paramSetup = 99999, 
+                             n = n_test))
+  
+  # Test that seed setting works as expected
+  test_generator = createRandomGenerator(distribution = distribution_test, paramSetup = paramSetup_test, 
+                                         n = n_test)
+  x1_test = test_generator()
+  x2_test = test_generator()
+  
+  # Compute expected results
+  set.seed(18)
+  rate_0_test = 2
+  rate_1_test = 1.4
+  rate_2_test = 1.2
+  shape_0_test = 1.8
+  shape_1_test = 1.2
+  shape_2_test = 1
+  
+  x11_expected = rgamma(n_test, shape=shape_0_test, rate=rate_0_test)
+  x12_expected = rgamma(n_test, shape=shape_1_test, rate=rate_1_test)
+  x13_expected = rgamma(n_test, shape=shape_2_test, rate=rate_2_test)
+  x1_expected = c(x11_expected, x12_expected, x13_expected)
+  
+  x21_expected = rgamma(n_test, shape=shape_0_test, rate=rate_0_test)
+  x22_expected = rgamma(n_test, shape=shape_1_test, rate=rate_1_test)
+  x23_expected = rgamma(n_test, shape=shape_2_test, rate=rate_2_test)
+  x2_expected = c(x21_expected, x22_expected, x23_expected)
+  
+  expect_equal(x1_test, x1_expected)
+  expect_equal(x2_test, x2_expected)
+})
+
+
 test_that("Test the runSimulation function",{
   # Set some variables
   distribution_test = "gamma"
@@ -308,7 +350,7 @@ test_that("Test the runSimulation function",{
   runs_test = 1
   
   # Test for some basic errors
-  # Expect error when invalid distribution is passed
+  # Expect error when invalid distribution is passed - this will be inherited from createRandomGenerator
   expect_error(runSimulation(distribution = "thisisnotadistn", paramSetup = paramSetup_test, 
                              n = n_test, model = model_test, d = d_test, lambdaVals = lambdaVals_test))
   # Expect error when passing an invalid paramsetup code
@@ -363,4 +405,58 @@ test_that("Test the runSimulation function",{
                                 model=model_test, d=d_test,lambdaVals = lambdaVals_test, adaptive = TRUE, runs = 1)
   # Expect equality again
   expect_equal(simPath_test_adap, simPathOutputAdap)
+})
+
+
+test_that("Test the basis function generator for the AIC/BIC simulations",{
+  # The function produces every sub-function of this function: (log(x), (log(x))^2, sqrt(x), x, x^2)
+  # The function leverages the built-in C basis functions but doesn't expose them directly
+  # So we need to write a helper function to get the actual function outputs for those codes
+  
+  expose_C_basis_function = function(model){
+    if(is.double(model)){
+      model_function = switch(
+        as.character(model),
+        `1` = function(x) x,
+        `2` = function(x) log(abs(x)),
+        `3` = function(x) sqrt(abs(x)),
+        `4` = function(x) x^2,
+        `5` = function(x) c(x, x^2),
+        `6` = function(x) c(log(abs(x)), x), # The actual function reverses this, but order doesn't really matter
+        `7` = function(x) c(log(abs(x)), sqrt(abs(x)), x),
+        `8` = function(x) c(log(abs(x)), sqrt(abs(x)), x^2),
+        `9` = function(x) c(log(abs(x)), x, x^2),
+        `10` = function(x) c(sqrt(abs(x)), x, x^2),
+        `11` = function(x) c(log(abs(x)), sqrt(abs(x)), x, x^2),
+        `12` = function(x) c(log(abs(x)), (log(abs(x)))^2, sqrt(abs(x)), x, x^2)
+      )
+    }else{
+      model_function = model
+    }
+    return(model_function)
+  }
+  
+  ids = 1:31
+  
+  x_test = 2
+  # Create full test vector
+  full_test_vector = c(log(x_test), log(x_test)^2, sqrt(x_test), x_test, x_test^2)
+  subset_list_expected = list()
+  
+  # Create every possible subvector
+  for(i in 1:5){
+    subsets = combn(full_test_vector, i)
+    for(j in 1:length(subsets[1,])){
+      subset_list_expected = append(subset_list_expected, list(c(subsets[,j])))
+    }
+  }
+  
+  subset_list_test = list()
+  for(i in ids){
+    func = expose_C_basis_function(subBasisFunc(i))
+    subset_list_test = append(subset_list_test, list(func(x_test)))
+  }
+  
+  expect_true(setequal(subset_list_expected, subset_list_test))
+  
 })
