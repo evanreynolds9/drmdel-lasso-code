@@ -373,6 +373,12 @@ test_that("Test the runSimulation function",{
   x2_test = rgamma(n_test,shape=shape_2,rate=rate_2)
   x_test = c(x0_test,x1_test,x2_test)
   
+  # Compute a second set of random variables
+  x0_test_b = rgamma(n_test,shape=shape_0,rate=rate_0)
+  x1_test_b = rgamma(n_test,shape=shape_1,rate=rate_1)
+  x2_test_b = rgamma(n_test,shape=shape_2,rate=rate_2)
+  x_test_b = c(x0_test_b,x1_test_b,x2_test_b)
+  
   simPath_test = solutionPath(x=x_test,n_total=n_total_test,n_samples=n_samples_test,
                               m=m_test,model=model_test,d=d_test,lambdaVals=lambdaVals_test)
   simPath_test = cbind(c(rep(1, nrow(simPath_test))), simPath_test)
@@ -386,10 +392,10 @@ test_that("Test the runSimulation function",{
   expect_equal(simPath_test, simPathOutput)
   
   # Check that output is the same when 0 isn't in the lambda values
-  simPathOutput2 = runSimulation(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, 
+  simPathOutput_1b = runSimulation(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, 
                                 model=model_test, d=d_test,lambdaVals = c(1), runs = 1) 
   
-  expect_equal(simPathOutput, simPathOutput2)
+  expect_equal(simPathOutput, simPathOutput_1b)
   
   
   # Confirm for the adaptive case as well
@@ -405,37 +411,51 @@ test_that("Test the runSimulation function",{
                                 model=model_test, d=d_test,lambdaVals = lambdaVals_test, adaptive = TRUE, runs = 1)
   # Expect equality again
   expect_equal(simPath_test_adap, simPathOutputAdap)
+  
+  # Run a test on multiple simulations to confirm matrix is being setup properly
+  # Construct two run simulation from first run
+  simPath_test_b = solutionPath(x=x_test_b,n_total=n_total_test,n_samples=n_samples_test,
+                              m=m_test,model=model_test,d=d_test,lambdaVals=lambdaVals_test)
+  simPath_test_b = cbind(c(rep(2, nrow(simPath_test_b))), simPath_test_b)
+  simPath_test_2 = rbind(simPath_test, simPath_test_b) # This should inherit the colnames
+  
+  # Compute output
+  simPathOutput_2 = runSimulation(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, 
+                                model=model_test, d=d_test,lambdaVals = lambdaVals_test, runs = 2)
+  
+  # Confirm equality
+  expect_equal(simPath_test_2, simPathOutput_2)
 })
+
+
+# Define helper function to expose actual basis functions for the next two tests
+# This is needed because the helper will use the built-in C basis functions when available
+expose_C_basis_function = function(model){
+  if(is.double(model)){
+    model_function = switch(
+      as.character(model),
+      `1` = function(x) x,
+      `2` = function(x) log(abs(x)),
+      `3` = function(x) sqrt(abs(x)),
+      `4` = function(x) x^2,
+      `5` = function(x) c(x, x^2),
+      `6` = function(x) c(x, log(abs(x))),
+      `7` = function(x) c(log(abs(x)), sqrt(abs(x)), x),
+      `8` = function(x) c(log(abs(x)), sqrt(abs(x)), x^2),
+      `9` = function(x) c(log(abs(x)), x, x^2),
+      `10` = function(x) c(sqrt(abs(x)), x, x^2),
+      `11` = function(x) c(log(abs(x)), sqrt(abs(x)), x, x^2),
+      `12` = function(x) c(log(abs(x)), (log(abs(x)))^2, sqrt(abs(x)), x, x^2)
+    )
+  }else{
+    model_function = model
+  }
+  return(model_function)
+}
 
 
 test_that("Test the basis function generator for the AIC/BIC simulations",{
   # The function produces every sub-function of this function: (log(x), (log(x))^2, sqrt(x), x, x^2)
-  # The function leverages the built-in C basis functions but doesn't expose them directly
-  # So we need to write a helper function to get the actual function outputs for those codes
-  
-  expose_C_basis_function = function(model){
-    if(is.double(model)){
-      model_function = switch(
-        as.character(model),
-        `1` = function(x) x,
-        `2` = function(x) log(abs(x)),
-        `3` = function(x) sqrt(abs(x)),
-        `4` = function(x) x^2,
-        `5` = function(x) c(x, x^2),
-        `6` = function(x) c(log(abs(x)), x), # The actual function reverses this, but order doesn't really matter
-        `7` = function(x) c(log(abs(x)), sqrt(abs(x)), x),
-        `8` = function(x) c(log(abs(x)), sqrt(abs(x)), x^2),
-        `9` = function(x) c(log(abs(x)), x, x^2),
-        `10` = function(x) c(sqrt(abs(x)), x, x^2),
-        `11` = function(x) c(log(abs(x)), sqrt(abs(x)), x, x^2),
-        `12` = function(x) c(log(abs(x)), (log(abs(x)))^2, sqrt(abs(x)), x, x^2)
-      )
-    }else{
-      model_function = model
-    }
-    return(model_function)
-  }
-  
   ids = 1:31
   
   x_test = 2
@@ -453,10 +473,109 @@ test_that("Test the basis function generator for the AIC/BIC simulations",{
   
   subset_list_test = list()
   for(i in ids){
-    func = expose_C_basis_function(subBasisFunc(i))
+    basis_func_or_id = subBasisFunc(i)
+    if(is.double(basis_func_or_id)){ 
+      if(basis_func_or_id == 6){
+        # Need to hard code this as built-in C reverses this order
+        func = function(x) c(log(abs(x)), x)
+      }else{
+        func = expose_C_basis_function(basis_func_or_id)
+      }
+    }else{
+      func = expose_C_basis_function(basis_func_or_id)
+    }
     subset_list_test = append(subset_list_test, list(func(x_test)))
   }
   
   expect_true(setequal(subset_list_expected, subset_list_test))
   
 })
+
+
+test_that("Test the simulation run function for AIC/BIC",{
+  # The function produces a number of simulation runs using the AIC/BIC methodology
+  # This computes the AIC/BIC of every sub-model of (log(x), log(x)^2, sqrt(x), x, x^2)
+  # simulate data
+  
+  # Setup variables
+  distribution_test = "normal"
+  paramSetup_test = 2
+  n_test = 50
+  n_samples_test = rep(n_test, 3)
+  n_total_test = sum(n_samples_test)
+  ids = 1:31
+  
+  # These are fixed inputs of the function - will need to change if test changes
+  max_basis_function_length = 5
+  m_test = 2
+  
+  # Set expected seed and create x_test entries
+  set.seed(18)
+  # Set parameters
+  mu_0 = 5
+  mu_1 = 4.5
+  mu_2 = 5.5
+  sigma_0 = 1.5
+  sigma_1 = 1.25
+  sigma_2 = 1
+  # Compute random samples
+  x0_test_1 = rnorm(n_test,mean=mu_0,sd=sigma_0)
+  x1_test_1 = rnorm(n_test,mean=mu_1,sd=sigma_1)
+  x2_test_1 = rnorm(n_test,mean=mu_2,sd=sigma_2)
+  x_test_1 = c(x0_test_1,x1_test_1,x2_test_1)
+  
+  # Compute a second set of random variables - we will test two runs
+  x0_test_2 = rnorm(n_test,mean=mu_0,sd=sigma_0)
+  x1_test_2 = rnorm(n_test,mean=mu_1,sd=sigma_1)
+  x2_test_2 = rnorm(n_test,mean=mu_2,sd=sigma_2)
+  x_test_2 = c(x0_test_2,x1_test_2,x2_test_2)
+
+  # Compute expected outputs
+  total_cols = 5+(m_test*(max_basis_function_length+1))
+  expected_output_1 = matrix(0, nrow=length(ids), ncol=total_cols)
+  colnames(expected_output_1) = c(c("Run", "subFuncID", "d", "AIC", "BIC"), 
+                                  paste("par", 1:(m_test*(max_basis_function_length+1)), sep="_"))
+  
+  # Compute outputs
+  sim_output_1 = simAICBIC(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, runs = 1)
+  sim_output_2 = simAICBIC(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, runs = 2)
+  
+  for(id in ids){
+    basis_func_for_id = expose_C_basis_function(subBasisFunc(id))
+    d = length(basis_func_for_id(0))
+    mele = drmdel(x = x_test_1, n_samples = n_samples_test, basis_func = basis_func_for_id)$mele
+    aicbic = aic_bic_drm(theta=mele, x=x_test_1, n_total=n_total_test, n_samples=n_samples_test, 
+                         m=m_test, basis_func=basis_func_for_id, d=d)
+    
+    expected_output_1[id, 1] = 1
+    expected_output_1[id, 2] = id
+    expected_output_1[id, 3] = d
+    expected_output_1[id, 4:5] = aicbic
+    expected_output_1[id, 6:(total_cols)] = c(mele, rep(0, total_cols-5-length(mele)))
+  }
+  
+  # Compare to output
+  expect_equal(expected_output_1, sim_output_1)
+  
+  # Compute second simulation
+  expected_output_1_b = matrix(0, nrow=length(ids), ncol=total_cols)
+  
+  for(id in ids){
+    basis_func_for_id = expose_C_basis_function(subBasisFunc(id))
+    d = length(basis_func_for_id(0))
+    mele = drmdel(x = x_test_2, n_samples = n_samples_test, basis_func = basis_func_for_id)$mele
+    aicbic = aic_bic_drm(theta=mele, x=x_test_2, n_total=n_total_test, n_samples=n_samples_test, 
+                         m=m_test, basis_func=basis_func_for_id, d=d)
+    
+    expected_output_1_b[id, 1] = 2
+    expected_output_1_b[id, 2] = id
+    expected_output_1_b[id, 3] = d
+    expected_output_1_b[id, 4:5] = aicbic
+    expected_output_1_b[id, 6:(total_cols)] = c(mele, rep(0, total_cols-5-length(mele)))
+  }
+  
+  expected_output_2 = rbind(expected_output_1, expected_output_1_b)
+  
+  expect_equal(expected_output_2, sim_output_2)
+})
+

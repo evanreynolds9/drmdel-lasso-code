@@ -188,7 +188,7 @@ subBasisFunc = function(id) {
    `6`  = function(x) c(log(abs(x))^2, sqrt(abs(x))),
    `7`  = function(x) c(log(abs(x)), log(abs(x))^2, sqrt(abs(x))), # sub for lognormal
    `8`  = 1, # code for x
-   `9`  = 6, # code for log(x), x - true basis function for gamma
+   `9`  = 6, # code for log(x), x - true basis function for gamma (order is reversed in C, which doesn't matter, but should be understood)
    `10` = function(x) c(log(abs(x))^2, x),
    `11` = function(x) c(log(abs(x)), log(abs(x))^2, x), # sub for gamma, lognormal
    `12` = function(x) c(sqrt(abs(x)), x),
@@ -238,16 +238,20 @@ simAICBIC = function(distribution, paramSetup, n, runs = 1000){
   
   # Setup matrix to store results
   # Only setup for basis function 12 right now - loop over all 31 options - so 31 rows per run
-  # We will also only store columns with the AIC/BIC values since we are not currently interested in inference
+  # The parameters for the basis function will be stored in the order returned by the mele, and padded with 0s
   subFuncs = 31
-  simulationResults = matrix(0, nrow = runs*subFuncs, ncol = 4)
+  max_mele_length = m*6
+  fixed_cols = c("Run", "subFuncID", "d", "AIC", "BIC")
+  simulationResults = matrix(0, nrow = runs*subFuncs, ncol = length(fixed_cols)+max_mele_length)
     # Column 1: Run
     # Column 2: basisFuncID
-    # Column 3: AIC
-    # Column 4: BIC
+    # Column 3: d
+    # Column 4: AIC
+    # Column 5: BIC
+    # Columns 6-(5+m*(max(d)+1)): MELE results, padded by 0s
   
   # Set columns names of the results
-  colnames(simulationResults) = c("Run", "subFuncID", "AIC", "BIC")
+  colnames(simulationResults) = c(fixed_cols, paste("par", 1:max_mele_length, sep="_")) # the longest basis function is 5
   
   # Start runs
   for(i in 1:runs){
@@ -275,7 +279,9 @@ simAICBIC = function(distribution, paramSetup, n, runs = 1000){
       
       simulationResults[rowIdx,1] = i
       simulationResults[rowIdx,2] = j
-      simulationResults[rowIdx,3:4] = AICBIC
+      simulationResults[rowIdx,3] = d
+      simulationResults[rowIdx,4:5] = AICBIC
+      simulationResults[rowIdx,(length(fixed_cols)+1):(length(fixed_cols)+max_mele_length)] = c(mele,rep(0,(max_mele_length-length(mele))))
       
     }
   }
