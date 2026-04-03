@@ -6,10 +6,105 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <R.h>
-#include <Rinternals.h>
 #include "basisFuncs.h"
-#include "utilities.h"
+
+
+/* prototypes */
+void lp_val(unsigned long m, unsigned long d, double * restrict h, /*inputs*/
+            double *restrict* restrict par_mat, /*inputs*/
+            double *restrict lp /*outputs*/);
+
+void pen_val(unsigned long d, /*inputs*/
+            double *restrict par_mat_i, /*inputs*/
+            double *restrict l2 /*outputs*/);
+
+double logDualLGLCache(unsigned long n_total, /*inputs*/
+            unsigned long * restrict n_samples, /*inputs*/
+            unsigned long m, unsigned long d, /*inputs*/
+            double *restrict* restrict par_mat, /*inputs*/
+            double *restrict* restrict* restrict x_mat_H /*inputs*/,
+            double lambda, double * restrict pen_g /*inputs*/);
+
+void R_val(unsigned long m, unsigned long d, double * restrict h, /*inputs*/
+            double *restrict* restrict par_mat, double * restrict n_samples, /*inputs*/
+            double *restrict R /*outputs*/);
+
+void grad_Gt(unsigned long n_total, /*inputs*/
+            unsigned long * restrict n_samples, /*inputs*/
+            unsigned long m, unsigned long d, /*inputs*/
+            double *restrict* restrict par_mat, /*inputs*/
+            double *restrict* restrict* restrict x_mat_H /*inputs*/,
+            unsigned long g, /*inputs*/
+            double * restrict grad_G /*output*/);
+
+double hG(unsigned long n_total, /*inputs*/
+            double * restrict n_samples, /*inputs*/
+            unsigned long m, unsigned long d, /*inputs*/
+            double *restrict* restrict par_mat, /*inputs*/
+            double *restrict* restrict* restrict x_mat_H /*inputs*/,
+            unsigned long g /*inputs*/);
+
+void bcgd(double *restrict n_total, /* total pooled sample size */
+            double *restrict n_samples, /* vector samples sizes*/
+            double *restrict m, double *restrict d, /* number of samples and length of basis function*/
+            double *restrict model, double *restrict x, /*vector of sample values*/
+            double *restrict lambda, double *restrict pen_g, /* penalty values*/
+            double *restrict omega_0, double *restrict psi, double *restrict sigma, /* optimization hyperparameters*/
+            double *restrict threshold, double *restrict max_iters, /*convergence criteria*/
+            double *restrict theta_0, /*input/output: initial -> optimized value of parameter vector*/
+            double *restrict opt_val, /*output: the minimized value of the negLDLGL function */
+            double *restrict total_iters /*output: number of iterations to convergence*/);
+
+void errMsg(char err_text[]);
+
+
+void main(void){
+  printf("Starting program. Initializing variables.\n");
+  
+  double n_total_ = 150, m_ = 2, d_ = 5, model_ = 12, lambda_ = pow(150, 1.0/3.0) * 0.25, omega_0_ = 1,
+    psi_ = 0.5, sigma_ = 0.1, threshold_ = 0.000001, max_iters_ = 1000, opt_val_ = 0, total_iters_ = 0;
+  
+  double n_samples_[3] = {50, 50, 50};
+  double x_[150] = {6.6309574, 3.1413579, 5.6474208, 6.6009971, 3.8154782, 2.9604379, 5.8827453, 
+                    4.3491227, 7.2508840, 1.6393554, 3.2628853, 4.7829593, 6.6365459, 4.3216228, 
+                    4.9365632, 6.7583933, 5.6616546, 4.8618242, 7.1794476, 5.2004390, 3.4153271, 
+                    4.9647271, 6.5926146, 3.3438906, 4.9524755, 4.9366501, 3.9358898, 5.0967965, 
+                    1.6581449, 6.9975067, 3.9228392, 4.2679283, 5.8949320, 3.9245702, 5.8373946, 
+                    7.3050936, 4.4784620, 5.7996959, 4.4287142, 3.9586621, 5.5625431, 2.0383891, 
+                    6.6154937, 6.4673656, 6.1316003, 2.4202314, 4.0600167, 6.5076318, 4.7709201, 
+                    7.3070676, 4.2019153, 4.6962754, 3.2233401, 5.4424402, 1.5348571, 4.9644339, 
+                    5.1357341, 3.7727272, 3.4366335, 3.2885508, 4.5677271, 5.4378566, 4.4858408, 
+                    5.0498646, 8.1368716, 3.7136574, 4.1579265, 5.9728063, 5.5325910, 3.9254638, 
+                    3.8152936, 2.4688471, 4.2907580, 3.8362365, 3.2533921, 3.4642051, 5.5902771, 
+                    3.8684889, 3.1718230, 3.5471559, 4.2786596, 3.4513952, 4.7384459, -0.1690255, 
+                    5.0261968, 1.6038025, 5.8403471, 5.2039663, 6.3906567, 4.5570211, 5.0176926, 
+                    4.9436399, 3.3677537, 5.8492259, 5.0942571, 2.8353539, 3.5413431, 5.9582463, 
+                    5.7291097, 4.4729758, 5.5601496, 6.5055580, 6.9798187, 4.6717211, 4.9190521, 
+                    5.5147621, 3.2505284, 4.8750979, 6.9785663, 4.5708385, 5.9111681, 5.8213275, 
+                    6.3228406, 5.9904783, 4.8181384, 6.2666558, 6.1426041, 4.5560148, 5.1078446, 
+                    5.2219760, 7.4200820, 6.8896429, 4.9345390, 4.0773469, 5.9655801, 5.5186582, 
+                    5.8661555, 6.8201747, 5.2725275, 6.1032118, 4.2611269, 3.1034228, 5.2048233, 
+                    5.5435162, 5.4554876, 4.9292365, 5.0635803, 5.1970922, 5.6578684, 6.6902415, 
+                    6.8124955, 4.2336403, 5.6004375, 6.5272864, 3.6415381, 3.7916745, 4.8084081, 
+                    3.4779163, 4.3930668, 5.8975375};
+  double pen_g_[5] = {1, 1, 1, 1, 1};
+  double theta_0_[12] = {56.479963, 17.019179, 88.699394, 59.529174, -103.891429, 2.916249,
+                         -28.729046, 12.454162,-34.787001, -24.271241, 35.745495, -1.016633};
+  
+  printf("Beginning function execution.\n");
+  
+  bcgd(&n_total_, n_samples_, &m_, &d_, &model_, x_, &lambda_, pen_g_, &omega_0_, &psi_, &sigma_, &threshold_,
+       &max_iters_, theta_0_, &opt_val_, &total_iters_);
+  
+  printf("Function complete.\n");
+  printf("Iterations: %f\n", total_iters_);
+  printf("Opt Value: %f\n", opt_val_);
+  printf("Theta Values:\n");
+  for (int i = 0; i < 12; i++){
+    printf("\t%f\n", theta_0_[i]);
+  }
+  printf("End of test program.");
+}
 
 
 void lp_val(unsigned long m, unsigned long d, double * restrict h, /*inputs*/
@@ -30,6 +125,18 @@ void lp_val(unsigned long m, unsigned long d, double * restrict h, /*inputs*/
     }
   }
   
+}
+
+void pen_val(unsigned long d, /*inputs*/
+  double *restrict par_mat_i, /*inputs*/
+  double *restrict l2 /*outputs*/)
+  /* l2 is a d length vector that stores the squared sum
+   * of the coefficients of each basis function term */
+{
+  unsigned long i;
+  for (i=1; i<d+1; ++i){
+    l2[i-1] += par_mat_i[i]*par_mat_i[i];
+  }
 }
 
 
@@ -690,4 +797,12 @@ void bcgd(
   // free other variables
   free(n_samples_use);
   free((void *) par_mat);
+}
+
+/* define error function separately */
+void errMsg(char err_text[])
+  /* Standard error handler; R version */
+{
+  fprintf(stderr, "Error: %s\n", err_text);
+  exit(EXIT_FAILURE); 
 }

@@ -51,3 +51,4 @@ theta = c(56.479963, 17.019179, 88.699394, 59.529174, -103.891429, 2.916249,-28.
 bcgd_problem = bcgd(theta_0 = theta, x = x_test, n_total = sum(n_samples), n_samples = n_samples, m = m, model = model, 
                 d = d, lambda = lambda_val
                 )
+print(bcgd_problem) # Na's...
