@@ -579,3 +579,20 @@ test_that("Test the simulation run function for AIC/BIC",{
   expect_equal(expected_output_2, sim_output_2)
 })
 
+
+test_that("Test the summariseSim function on some test csv files",{
+  setwd("Data")
+  
+  results1a = summariseSim(distribution="normal", file_name="test_file_1.csv", basis_func=12, tol=0.0001)
+  expected_results1a = c(runs=1, AIC=1, AIC_sub=1, BIC=0.5, BIC_sub=1)
+  expect_equal(results1a, expected_results1a)
+  
+  results1b = summariseSim(distribution="gamma", file_name="test_file_1.csv", basis_func=12, tol=0.0001)
+  expected_results1b = c(runs=0, AIC=0, AIC_sub=0, BIC=0, BIC_sub=0.5)
+  expect_equal(results1b, expected_results1b)
+  
+  results1c = summariseSim(distribution="normal", file_name="test_file_1.csv", basis_func=12, tol=0.005)
+  expected_results1c = c(runs=0.5, AIC=0.5, AIC_sub=0.5, BIC=0, BIC_sub=0.5)
+  expect_equal(results1c, expected_results1c)
+})
+
