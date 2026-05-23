@@ -851,7 +851,7 @@ double hG(unsigned long n_total, /*inputs*/
       }
     
       for (k = 0; k < m; ++k) {
-        qaa[k][k] = R[k] * R[k] / (S * S) - R[k] / S;
+        qaa[k][k] = (R[k] / S) * (R[k] / S) - R[k] / S;
       }
     
       // Add relevant values to diagonal vector
