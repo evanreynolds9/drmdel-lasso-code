@@ -73,6 +73,45 @@ void R_val(unsigned long m, unsigned long d, double * restrict h, /*inputs*/
 
 }
 
+void Softmax(unsigned long m, unsigned long d, double * restrict h, /*inputs*/
+  double *restrict* restrict par_mat, double * restrict n_samples, /*inputs*/
+  double *restrict R /*outputs*/)
+  /* Used to take get the softmax of the terms of R, but using the shift trick to prevent overflow*/
+  
+{
+  /* loop indices */
+  unsigned long i, j;
+  
+  double max_R = 0;
+  /* calculating r_i */
+  for (i = 0; i < m; ++i) {
+    R[i] = par_mat[i][0];
+    for (j = 1; j < d + 1; ++j) {
+      R[i] = R[i] + par_mat[i][j] * h[j-1];
+    }
+    if (i==0){
+      max_R = R[i];
+    } else {
+      if(R[i] > max_R){
+        max_R = R[i];
+      }
+    }
+  }
+  
+  // Compute the exponentials, shifting by the max, and also compute the sum for the denominator
+  double S = n_samples[0] * exp((-1)*max_R);
+  for (i = 0; i < m; ++i) {
+    R[i] = n_samples[i+1] * exp(R[i] - max_R);
+    S += R[i];
+  }
+  
+  // Divide all terms by the sum to compute the softmax - it should be no less than 1
+  for (i = 0; i < m; ++i) {
+    R[i] /= S;
+  }
+  
+}
+
 void pen_val(unsigned long d, /*inputs*/
   double *restrict par_mat_i, /*inputs*/
   double *restrict l2 /*outputs*/)
@@ -833,25 +872,16 @@ double hG(unsigned long n_total, /*inputs*/
     }
   }
   
-  /*other variables*/
-  double S;
-  
   /*output variable*/
   double h_g;
   
   for (i = 0; i < m+1; ++i) {
     for (j = 0; j < n_samples[i]; ++j) {
     
-      R_val(m, d, x_mat_H[i][j], par_mat, n_samples, R); /*update R*/
-    
-      /*calculating S*/
-      S = n_samples[0];
-      for (k = 0; k < m; ++k) {
-        S += R[k];
-      }
+      Softmax(m, d, x_mat_H[i][j], par_mat, n_samples, R); /*update R*/
     
       for (k = 0; k < m; ++k) {
-        qaa[k][k] = (R[k] / S) * (R[k] / S) - R[k] / S;
+        qaa[k][k] = R[k] * (R[k] - 1);
       }
     
       // Add relevant values to diagonal vector
@@ -933,10 +963,6 @@ void grad_Gt(unsigned long n_total, /*inputs*/
     rho[i] = (double)n_samples[i]/(double)n_total;
   }
   
-  /*other variables*/
-  double S;
-  double tmp_double;
-  
   /*initializing grad_G as safeguard*/
   for (i = 0; i < m; ++i) {
    grad_G[i] = 0.0;
@@ -949,23 +975,15 @@ void grad_Gt(unsigned long n_total, /*inputs*/
       /*update H = (1, h^T)^T*/
       //(*h_func)(x_mat[i][j], H+1); /*update H*/
       
-      R_val(m, d, x_mat_H[i][j], par_mat, rho, R); /*update R*/
-      
-      /*calculating S*/
-      S = rho[0];
-      for (k = 0; k < m; ++k) {
-        S += R[k];
-      }
+      Softmax(m, d, x_mat_H[i][j], par_mat, rho, R); /*update R*/
       
       /* calculating the gradient of ldl */
       for (k = 0; k < m; ++k) {
         
-        tmp_double = -R[k]/S;
-        
         if(g==0){ // group is the constant group, so factor is 1
-          grad_G[k] += tmp_double;
+          grad_G[k] -= R[k];
         } else{
-          grad_G[k] += tmp_double * x_mat_H[i][j][g-1]; //use g-1 as index since index starts at first term of basis function
+          grad_G[k] += -R[k] * x_mat_H[i][j][g-1]; //use g-1 as index since index starts at first term of basis function
         }
         
       }
