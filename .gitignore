@@ -6,10 +6,8 @@ src/*.o
 src/*.so
 src/*.dll
 src/*.exe
-drmdel-lasso.Rproj
+.Rproj
 
-# Ignore testing file
-/testing.R
-
-# Ignore .Renviron file
-.Renviron
+# Ignore data csvs which are too large for github
+simulation_data/*.csv
+simulation_results/*.csv

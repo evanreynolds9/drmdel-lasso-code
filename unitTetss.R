@@ -406,9 +406,6 @@ test_that("Test createRandomGenerator function that sets seed and returns a rand
 
 
 test_that("Test the runSimulation function",{
-  # Set some variables
-  distribution_test = "gamma"
-  paramSetup_test = 1
   n_test = 50
   model_test = 6
   d_test = 2
@@ -418,51 +415,35 @@ test_that("Test the runSimulation function",{
   n_total_test = sum(n_samples_test)
   runs_test = 1
   
-  # Test for some basic errors
-  # Expect error when invalid distribution is passed - this will be inherited from createRandomGenerator
-  expect_error(runSimulation(distribution = "thisisnotadistn", paramSetup = paramSetup_test, 
-                             n = n_test, model = model_test, d = d_test, lambdaVals = lambdaVals_test))
-  # Expect error when passing an invalid paramsetup code
-  expect_error(runSimulation(distribution = distribution_test, paramSetup = 99999, 
-                             n = n_test, model = model_test, d = d_test, lambdaVals = lambdaVals_test))
+  # Load x data from mock file
+  df = read.csv("mock_runSimulation.csv")
+  x = as.matrix(df)
+  colnames(x) = NULL
   
-  # Compute simulationpath for one run
-  # Set expected seed and create x_test
-  set.seed(18)
-  # Set parameters
-  rate_0 = 2
-  rate_1 = 1.4
-  rate_2 = 1.2
-  shape_0 = 1.8
-  shape_1 = 1.2
-  shape_2 = 1
-  # Compute random samples
-  x0_test = rgamma(n_test,shape=shape_0,rate=rate_0)
-  x1_test = rgamma(n_test,shape=shape_1,rate=rate_1)
-  x2_test = rgamma(n_test,shape=shape_2,rate=rate_2)
-  x_test = c(x0_test,x1_test,x2_test)
+  x_test = x[1,]
   
-  # Compute a second set of random variables
-  x0_test_b = rgamma(n_test,shape=shape_0,rate=rate_0)
-  x1_test_b = rgamma(n_test,shape=shape_1,rate=rate_1)
-  x2_test_b = rgamma(n_test,shape=shape_2,rate=rate_2)
-  x_test_b = c(x0_test_b,x1_test_b,x2_test_b)
+  # Compute a second set of random variables - we will test two runs
+  x_test_b = x[2,]
   
+  # confirm function throws error if n and number of columns in x are incompatible
+  expect_error(runSimulation(x = x, n=1, model = model_test, d = d_test, lambdaVals = lambdaVals_test))
+  
+  # Compute expected output
   simPath_test = solutionPath(x=x_test,n_total=n_total_test,n_samples=n_samples_test,
                               m=m_test,model=model_test,d=d_test,lambdaVals=lambdaVals_test)
   simPath_test = cbind(c(rep(1, nrow(simPath_test))), simPath_test)
   colnames(simPath_test) = c("Run", colnames(simPath_test[, -1]))
   
   # Compute output
-  simPathOutput = runSimulation(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, 
-                                model=model_test, d=d_test,lambdaVals = lambdaVals_test, runs = 1)
+  simPathOutput = runSimulation(x = matrix(x[1,], nrow=1), n=n_test, 
+                                model=model_test, d=d_test,lambdaVals = lambdaVals_test)
   
   # Confirm equality
   expect_equal(simPath_test, simPathOutput)
   
   # Check that output is the same when 0 isn't in the lambda values
-  simPathOutput_1b = runSimulation(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, 
-                                model=model_test, d=d_test,lambdaVals = c(1), runs = 1) 
+  simPathOutput_1b = runSimulation(x = matrix(x[1,], nrow=1), n=n_test, 
+                                model=model_test, d=d_test,lambdaVals = c(1)) 
   
   expect_equal(simPathOutput, simPathOutput_1b)
   
@@ -476,8 +457,8 @@ test_that("Test the runSimulation function",{
   colnames(simPath_test_adap) = c("Run", colnames(simPath_test_adap[, -1]))
   
   # Compute output
-  simPathOutputAdap = runSimulation(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, 
-                                model=model_test, d=d_test,lambdaVals = lambdaVals_test, adaptive = TRUE, runs = 1)
+  simPathOutputAdap = runSimulation(x = matrix(x[1,], nrow=1), n=n_test, 
+                                model=model_test, d=d_test,lambdaVals = lambdaVals_test, adaptive = TRUE)
   # Expect equality again
   expect_equal(simPath_test_adap, simPathOutputAdap)
   
@@ -489,8 +470,8 @@ test_that("Test the runSimulation function",{
   simPath_test_2 = rbind(simPath_test, simPath_test_b) # This should inherit the colnames
   
   # Compute output
-  simPathOutput_2 = runSimulation(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, 
-                                model=model_test, d=d_test,lambdaVals = lambdaVals_test, runs = 2)
+  simPathOutput_2 = runSimulation(x = x, n=n_test, 
+                                model=model_test, d=d_test,lambdaVals = lambdaVals_test)
   
   # Confirm equality
   expect_equal(simPath_test_2, simPathOutput_2)
@@ -567,8 +548,6 @@ test_that("Test the simulation run function for AIC/BIC",{
   # simulate data
   
   # Setup variables
-  distribution_test = "normal"
-  paramSetup_test = 2
   n_test = 50
   n_samples_test = rep(n_test, 3)
   n_total_test = sum(n_samples_test)
@@ -578,26 +557,18 @@ test_that("Test the simulation run function for AIC/BIC",{
   max_basis_function_length = 5
   m_test = 2
   
-  # Set expected seed and create x_test entries
-  set.seed(18)
-  # Set parameters
-  mu_0 = 5
-  mu_1 = 4.5
-  mu_2 = 5.5
-  sigma_0 = 1.5
-  sigma_1 = 1.25
-  sigma_2 = 1
-  # Compute random samples
-  x0_test_1 = rnorm(n_test,mean=mu_0,sd=sigma_0)
-  x1_test_1 = rnorm(n_test,mean=mu_1,sd=sigma_1)
-  x2_test_1 = rnorm(n_test,mean=mu_2,sd=sigma_2)
-  x_test_1 = c(x0_test_1,x1_test_1,x2_test_1)
+  # Load x data from mock file
+  df = read.csv("mock_runSimulation.csv")
+  x = as.matrix(df)
+  colnames(x) = NULL
+  
+  x_test_1 = x[1,]
   
   # Compute a second set of random variables - we will test two runs
-  x0_test_2 = rnorm(n_test,mean=mu_0,sd=sigma_0)
-  x1_test_2 = rnorm(n_test,mean=mu_1,sd=sigma_1)
-  x2_test_2 = rnorm(n_test,mean=mu_2,sd=sigma_2)
-  x_test_2 = c(x0_test_2,x1_test_2,x2_test_2)
+  x_test_2 = x[2,]
+  
+  # confirm function throws error if n and number of columns in x are incompatible
+  expect_error(simAICBIC(x = x, n=1))
 
   # Compute expected outputs
   total_cols = 5+(m_test*(max_basis_function_length+1))
@@ -606,8 +577,8 @@ test_that("Test the simulation run function for AIC/BIC",{
                                   paste("par", 1:(m_test*(max_basis_function_length+1)), sep="_"))
   
   # Compute outputs
-  sim_output_1 = simAICBIC(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, runs = 1)
-  sim_output_2 = simAICBIC(distribution = distribution_test, paramSetup = paramSetup_test, n=n_test, runs = 2)
+  sim_output_1 = simAICBIC(x = matrix(x[1,], nrow=1), n=n_test)
+  sim_output_2 = simAICBIC(x = x, n=n_test)
   
   for(id in ids){
     basis_func_for_id = expose_C_basis_function(subBasisFunc(id))
@@ -649,18 +620,16 @@ test_that("Test the simulation run function for AIC/BIC",{
 })
 
 
-test_that("Test the summariseSim function on some test csv files",{
-  setwd("Data")
-  
-  results1a = summariseSim(distribution="normal", file_name="test_file_1.csv", basis_func=12, tol=0.0001)
+test_that("Test the summariseSim function on a test csv files",{
+  results1a = summariseSim(distribution="normal", file_name="mock_summariseSim.csv", basis_func=12, tol=0.0001)
   expected_results1a = c(runs=1, AIC=1, AIC_sub=1, BIC=0.5, BIC_sub=1)
   expect_equal(results1a, expected_results1a)
   
-  results1b = summariseSim(distribution="gamma", file_name="test_file_1.csv", basis_func=12, tol=0.0001)
+  results1b = summariseSim(distribution="gamma", file_name="mock_summariseSim.csv", basis_func=12, tol=0.0001)
   expected_results1b = c(runs=0, AIC=0, AIC_sub=0, BIC=0, BIC_sub=0.5)
   expect_equal(results1b, expected_results1b)
   
-  results1c = summariseSim(distribution="normal", file_name="test_file_1.csv", basis_func=12, tol=0.005)
+  results1c = summariseSim(distribution="normal", file_name="mock_summariseSim.csv", basis_func=12, tol=0.005)
   expected_results1c = c(runs=0.5, AIC=0.5, AIC_sub=0.5, BIC=0, BIC_sub=0.5)
   expect_equal(results1c, expected_results1c)
 })

@@ -1,25 +1,14 @@
 # Initialize the shared C library, R Scripts for drmdellasso
 # This is assumed to be called from the directory root
-# Changes to relative paths must be made if this is not the case
-
-# Load .Renviron file to get shared lib name
-readRenviron(".Renviron")
-shared_lib = Sys.getenv("SHARED_LIB")
 
 # Load dplyr library
 library(dplyr)
 
-# Build the shared library
-setwd("src")
-lib_str = paste0(shared_lib, ".dll")
-command_str = paste("R CMD SHLIB -o",lib_str,"drmdelLasso.c utilities.c basisFuncs.c")
+command_str = "R CMD SHLIB -o src\\drmdelLasso.dll src\\drmdelLasso.c src\\utilities.c src\\basisFuncs.c"
 system(command_str)
 
 # Load the shared library
-dyn.load(lib_str)
-
-# Go back up to root directory
-setwd("..")
+dyn.load("src\\drmdelLasso.dll")
 
 # Load the R wrappers from the R folder
 source("R\\drmdelLasso.R")
@@ -131,18 +120,25 @@ createRandomGenerator = function(distribution, paramSetup, n){
 }
 
 
-# Define a wrapper function to run simulations for the default distributions and parameter values
-# These are gamma and normal distributions
-runSimulation = function(distribution, paramSetup, n, model, d, lambdaVals, adaptive = FALSE, runs = 1000){
+# Define a wrapper function to run simulations
+# The x supplied should be a matrix of the data for which to run the simulation
+# Each run should be stored in a row across the columns
+runSimulation = function(x, n, model, d, lambdaVals, adaptive = FALSE){
   # Set m - always setting to two for these simulation
   m = 2
+  
+  if(length(x[1,]) != (m+1)*n){
+    stop("Total pooled sample size does not equal the number of columns in x. Stopping.")
+  }
+  
+  # Compute runs
+  runs = length(x[,1])
+  
+  # Confirm that x has the right number of columns
   
   # Set n_total and n_samples
   n_samples = rep(n, m+1)
   n_total = sum(n_samples)
-  
-  # Create random number generator
-  x_generator = createRandomGenerator(distribution=distribution, paramSetup=paramSetup, n=n)
   
   # Compute path length, noting that 0 will be added if not passed
   # It will be added in the solution path function if not
@@ -157,11 +153,9 @@ runSimulation = function(distribution, paramSetup, n, model, d, lambdaVals, adap
   
   # Populate matrix by generating solution paths
   for(i in 1:runs){
-    # Simulate data
-    x_test = x_generator()
     
     # compute solution path
-    solPath = solutionPath(x = x_test, n_total = n_total, n_samples = n_samples, 
+    solPath = solutionPath(x = x[i,], n_total = n_total, n_samples = n_samples, 
                            m = m, model = model, d = d, lambdaVals, adaptive = adaptive)
     
     # Set the values of simulationResults
@@ -170,7 +164,9 @@ runSimulation = function(distribution, paramSetup, n, model, d, lambdaVals, adap
     simulationResults[(1+pathLength*(i-1)):(pathLength*i), 2:(2*(d+1) + 6)] = solPath # essentially using m = 2
     
     # If we are on the first run, pull the column names from solPath
-    colnames(simulationResults) = c("Run", colnames(solPath))
+    if(i==1){
+      colnames(simulationResults) = c("Run", colnames(solPath))
+    }
   }
   
   # Return simulationResults
@@ -225,16 +221,22 @@ subBasisFunc = function(id) {
 
 # Define a wrapper to run simulations but based purely on the AIC/BIC of the MELEs of the sub-functions,
 # as defined by Fokianos (2007)
-simAICBIC = function(distribution, paramSetup, n, runs = 1000){
+# The x supplied should be a matrix of the data for which to run the simulation
+# Each run should be stored in a row across the columns
+simAICBIC = function(x, n){
   # Set m - always setting to two for these simulation
   m = 2
+  
+  if(length(x[1,]) != (m+1)*n){
+    stop("Total pooled sample size does not equal the number of columns in x. Stopping.")
+  }
+  
+  # Compute runs
+  runs = length(x[,1])
   
   # Set n_total and n_samples
   n_samples = rep(n, m+1)
   n_total = sum(n_samples)
-  
-  # Create random number generator
-  x_generator = createRandomGenerator(distribution=distribution, paramSetup=paramSetup, n=n)
   
   # Setup matrix to store results
   # Only setup for basis function 12 right now - loop over all 31 options - so 31 rows per run
@@ -255,9 +257,6 @@ simAICBIC = function(distribution, paramSetup, n, runs = 1000){
   
   # Start runs
   for(i in 1:runs){
-    # Generate random data
-    # Simulate data
-    x_test = x_generator()
     
     # Iterate over each basis function
     for(j in 1:subFuncs){
@@ -265,13 +264,13 @@ simAICBIC = function(distribution, paramSetup, n, runs = 1000){
       model = subBasisFunc(j)
       
       # Compute mele
-      mele = drmdel(x=x_test, n_samples=n_samples, basis_func=model)$mele
+      mele = drmdel(x=x[i,], n_samples=n_samples, basis_func=model)$mele
       
       # Get d from mele
       d = (length(mele)-m)/m
       
       # Compute BIC and AIC
-      AICBIC = aic_bic_drm(theta = mele, x = x_test, n_total = n_total, 
+      AICBIC = aic_bic_drm(theta = mele, x = x[i,], n_total = n_total, 
                            n_samples = n_samples, m = m, basis_func = model, d = d)
       
       # Set Values in matrix
@@ -301,11 +300,6 @@ summariseSim = function(distribution, file_name, basis_func, tol){
   # file_name: (str) the name of the file where the data is stored
   # basis_func: (int) the basis function used. Currently, only 12 is supported
   # tol: (double) tolerance used to check consistent solutions, values less than this tolerance will be considered 0
-  
-  # Check this is being run in the data folder
-  if(sub("^.*/", "", getwd()) != "Data"){
-    stop("sumariseSim must be run from the Data folder!")
-  }
   
   # Ensure distribution string is valid
   if(!(distribution %in% c("normal", "gamma", "lognormal"))){
@@ -434,11 +428,6 @@ summariseSim = function(distribution, file_name, basis_func, tol){
 summariseAICBICSim = function(distribution, file_name){
   # distribution: (str) string specifying the distribution, must be "normal" or "gamma"
   # file_name: (str) the name of the file where the data is stored
-  
-  # Check this is being run in the data folder
-  if(sub("^.*/", "", getwd()) != "Data"){
-    stop("sumariseSim must be run from the Data folder!")
-  }
   
   # Ensure distribution string is valid
   if(!(distribution %in% c("normal", "gamma", "lognormal"))){
