@@ -22,9 +22,9 @@ runs = 1000
 for(distribution in c("normal", "gamma", "lognormal")){
   for(n in c(250, 500, 1000, 2500, 5000)){
     fileName = paste0(target_folder, "\\", distribution, "_", n, "_data.csv")
-    print(fileName)
     simMatrixN = generateSimulationData(runs=runs, distribution=distribution, paramSetup=paramSetup, n=n)
     simDataDf = as.data.frame(simMatrixN)
     write.csv(simDataDf, file=fileName, row.names = FALSE)
+    print(paste("Data written successfully to ", fileName))
   }
 }
