@@ -14,12 +14,16 @@ generateSimulationData = function(runs, distribution, paramSetup, n){
   return(simMatrix)
 }
 
-# Use second paramsetup for every distribution
-paramSetup = 2
 runs = 1000
 
 # Simulate data for each distribution
 for(distribution in c("normal", "gamma", "lognormal")){
+  # Use first paramsetup for normal and log-normal, and second paramsetup for gamma
+  if(distribution == "gamma"){
+    paramSetup = 2
+  } else {
+    paramSetup = 1
+  }
   for(n in c(250, 500, 1000, 2500, 5000)){
     fileName = paste0(target_folder, "\\", distribution, "_", n, "_data.csv")
     simMatrixN = generateSimulationData(runs=runs, distribution=distribution, paramSetup=paramSetup, n=n)
