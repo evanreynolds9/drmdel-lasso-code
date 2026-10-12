@@ -27,7 +27,7 @@ for n in 250 500 1000 2500 5000
 do
   for dist in normal gamma lognormal
   do
-    nohup Rscript generateSimulationResults.R "$n" "$dist" &> "out_${n}_${dist}"
+    nohup Rscript generateSimulationResults.R "$n" "$dist" &> "out_${dist}_${n}" &
   done
 done
 ```
