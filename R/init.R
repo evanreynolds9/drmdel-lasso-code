@@ -4,14 +4,19 @@
 # Load dplyr library
 library(dplyr)
 
-command_str = "R CMD SHLIB -o src\\drmdelLasso.dll src\\drmdelLasso.c src\\utilities.c src\\basisFuncs.c"
+shared_lib  <- file.path("src", "drmdelLasso.dll") # Leave off the extension (.dll/.so)!
+drmdel_lasso_C   <- file.path("src", "drmdelLasso.c")
+utilities_C  <- file.path("src", "utilities.c")
+basisFuncs_C  <- file.path("src", "basisFuncs.c")
+
+command_str = paste("R CMD SHLIB -o", shared_lib, drmdel_lasso_C, utilities_C, basisFuncs_C)
 system(command_str)
 
 # Load the shared library
-dyn.load("src\\drmdelLasso.dll")
+dyn.load("src/drmdelLasso.dll")
 
 # Load the R wrappers from the R folder
-source("R\\drmdelLasso.R")
+source("R/drmdelLasso.R")
 
 # Define a function that will generate a random number generator according to parameter specifications
 # Currently, this only supports 3-sample parameter setups

@@ -1,5 +1,5 @@
 # Create simulation data for simulation study
-source("R\\init.R")
+source("R/init.R")
 
 target_folder = "simulation_data"
 
@@ -25,7 +25,7 @@ for(distribution in c("normal", "gamma", "lognormal")){
     paramSetup = 1
   }
   for(n in c(250, 500, 1000, 2500, 5000)){
-    fileName = paste0(target_folder, "\\", distribution, "_", n, "_data.csv")
+    fileName = paste0(target_folder, "/", distribution, "_", n, "_data.csv")
     simMatrixN = generateSimulationData(runs=runs, distribution=distribution, paramSetup=paramSetup, n=n)
     simDataDf = as.data.frame(simMatrixN)
     write.csv(simDataDf, file=fileName, row.names = FALSE)

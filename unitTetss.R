@@ -4,7 +4,7 @@
 library(testthat)
 
 # Load functions
-source("R\\init.R")
+source("R/init.R")
 
 ### TEST DRMDELLASSO FUNCTIONS ###
 

@@ -10,7 +10,7 @@ if(length(args) != 2){
 }
 
 # Run simulation study
-source("R\\init.R")
+source("R/init.R")
 
 source_data_folder = "simulation_data"
 target_folder = "simulation_results"
@@ -24,7 +24,7 @@ n_sim = as.integer(args[1])
 distribution_sim = args[2]
 
 # Read sim data
-x_file_name = paste0(source_data_folder, "\\", distribution_sim, "_", n_sim, "_data.csv")
+x_file_name = paste0(source_data_folder, "/", distribution_sim, "_", n_sim, "_data.csv")
 x_sim = as.matrix(read.csv(x_file_name))
 # Remove column names
 colnames(x_sim) = NULL
@@ -38,7 +38,7 @@ run_full_simulation = function(x, n, distribution){
   reg_results = runSimulation(x = x, n = n, model = model_sim, d = d_sim, 
                               lambdaVals = lambda_vals_sim)
   
-  reg_file = paste0(target_folder, "\\", distribution, "_", n, "_reg_data.csv")
+  reg_file = paste0(target_folder, "/", distribution, "_", n, "_reg_data.csv")
   reg_df = as.data.frame(reg_results)
   write.csv(reg_df, file=reg_file, row.names = FALSE)
   print("Regular file written to csv")
@@ -47,7 +47,7 @@ run_full_simulation = function(x, n, distribution){
   adap_results = runSimulation(x = x, n = n, model = model_sim, d = d_sim, 
                               lambdaVals = lambda_vals_sim, adaptive = TRUE)
   
-  adap_file = paste0(target_folder, "\\", distribution, "_", n, "_adap_data.csv")
+  adap_file = paste0(target_folder, "/", distribution, "_", n, "_adap_data.csv")
   adap_df = as.data.frame(adap_results)
   write.csv(adap_df, file=adap_file, row.names = FALSE)
   print("Adaptive file written to csv")
@@ -55,7 +55,7 @@ run_full_simulation = function(x, n, distribution){
   print("Running aicbic simulation.")
   aicbic_results = simAICBIC(x = x, n = n)
   
-  aicbic_file = paste0(target_folder, "\\", distribution, "_", n, "_aicbic_data.csv")
+  aicbic_file = paste0(target_folder, "/", distribution, "_", n, "_aicbic_data.csv")
   aicbic_df = as.data.frame(aicbic_results)
   write.csv(aicbic_df, file=aicbic_file, row.names = FALSE)
   print("AICBIC file written to csv")
