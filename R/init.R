@@ -502,7 +502,7 @@ summariseAICBICSim = function(distribution, file_name){
 }
 
 # Check results for multiple simulations:
-checkAllSims = function(j, distributionStr, n){
+checkAllSims = function(distributionStr, n, model){
   # j: (int) numbered parameter setups to check (up to and including j)
   # distributionStr: (str) string for the distribution, must be in valid list below
   # n: (int) sample size
@@ -510,27 +510,27 @@ checkAllSims = function(j, distributionStr, n){
     stop('Invalid distribution string passed. Currently only "normal", "lognormal" and "gamma" are supported.')
   }
   
-  for(i in 1:j){
-    print(paste(distributionStr,"distributions results for parameter setup:",i))
-    
-    # Print results for regular estimator
-    print("Reg: ")
-    print(summariseSim(distributionStr, 
-                       paste0(paste("sim_results",distributionStr,i,"reg", n, sep = "_"),".csv"), 
-                       basis_func = model, tol = 1e-12))
-    
-    # Print results for adaptive estimator
-    print("Adap: ")
-    print(summariseSim(distributionStr, 
-                       paste0(paste("sim_results",distributionStr,i,"adap", n, sep = "_"),".csv"), 
-                       basis_func = model, tol = 1e-12))
-    
-    # Print results for AIC/BIC estimator
-    print("AIC/BIC: ")
-    print(summariseAICBICSim(distributionStr, 
-                             paste0(paste("sim_results_AICBIC", distributionStr, i, n, sep = "_"), ".csv")))
-    
-  }
+
+  print(paste(distributionStr,"distributions results for sample size:",n))
+  
+  # Print results for regular estimator
+  print("Reg: ")
+  print(summariseSim(distributionStr, 
+                     paste0(paste(distributionStr, n, "reg", "data", sep = "_"),".csv"), 
+                     basis_func = model, tol = 1e-12))
+  
+  # Print results for adaptive estimator
+  print("Adap: ")
+  print(summariseSim(distributionStr, 
+                     paste0(paste(distributionStr, n, "adap", "data", sep = "_"),".csv"), 
+                     basis_func = model, tol = 1e-12))
+  
+  # Print results for AIC/BIC estimator
+  print("AIC/BIC: ")
+  print(summariseAICBICSim(distributionStr, 
+                           paste0(paste(distributionStr, n, "aicbic", "data", sep = "_"), ".csv")))
+  
+
 }
 
 

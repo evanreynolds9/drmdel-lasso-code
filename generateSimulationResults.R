@@ -2,7 +2,7 @@
 args = commandArgs(trailingOnly = TRUE)
 
 if(length(args) != 2){
-  stop("Usage: Rscript generateSimulationResults n distribution")
+  stop("Usage: Rscript generateSimulationResults.R n distribution")
 }else if(!(as.integer(args[1]) %in% c(250, 500, 1000, 2500, 5000))){
   stop("n must be one of the following: 250, 500, 1000, 2500, 5000.")
 }else if(!(args[2] %in% c("normal", "gamma", "lognormal", "test"))){
@@ -32,7 +32,7 @@ colnames(x_sim) = NULL
 # Function to run simulation 
 run_full_simulation = function(x, n, distribution){
   # Generate lambda values - multiply n by 3 because it represents size of only one sample
-  lambda_vals_sim = ((n*3)^(1/3))*c(0, 0.05, 0.1, 0.5, 1, 2, 5, 10, 25, 50)
+  lambda_vals_sim = ((n*3)^(1/3))*c(0, 0.01, 0.02, 0.05, 0.1, 0.5, 5, 50)
   
   print("Running regular simulation.")
   reg_results = runSimulation(x = x, n = n, model = model_sim, d = d_sim, 
