@@ -11,3 +11,7 @@ src/*.exe
 # Ignore data csvs which are too large for github
 simulation_data/*.csv
 simulation_results/*.csv
+
+#ignore txt, log files
+*.txt
+*.log
