@@ -39,7 +39,7 @@ for(distribution in c("normal", "gamma", "lognormal")){
   }
   
   caption = c(
-    paste0("\\caption{Correct model selection results for ", distribution_str, " data}"),
+    paste0("\\caption{Model selection results for ", distribution_str, " data}"),
     paste0("\\label{tab:", distribution, "_data}")
   )
   
@@ -52,7 +52,7 @@ for(distribution in c("normal", "gamma", "lognormal")){
     } else if(est == "adap"){
       est_str = "\\multirow{5}{*}{$\\bm{\\hat{\\theta}}_{AGL^*}$}"
     } else {
-      est_str = "\\multirow{5}{*}{$\\bm{\\hat{\\theta}}_{AICBIC}$}"
+      est_str = "\\multirow{5}{*}{$\\bm{\\hat{\\theta}}_{MELE}$}"
     }
     
     data_rows = c(data_rows, est_str)
